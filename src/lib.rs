@@ -27,6 +27,12 @@
 //! }
 //! ```
 
+#[cfg(feature = "python")]
+mod python;
+
+#[cfg(feature = "python")]
+pub use python::_dynimg;
+
 use anyrender::{PaintScene as _, render_to_buffer};
 use anyrender_vello_cpu::VelloCpuImageRenderer;
 use blitz_dom::{BaseDocument, DocumentConfig, util::Color};

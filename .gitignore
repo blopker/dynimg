@@ -1,2 +1,12 @@
 /target
 /output
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+*.whl
+.pytest_cache/

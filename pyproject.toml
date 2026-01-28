@@ -1,0 +1,38 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "dynimg"
+version = "0.1.0"
+description = "A fast library for rendering HTML/CSS to images"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Rust",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+]
+keywords = ["html", "css", "image", "render", "screenshot", "og-image"]
+
+[project.urls]
+Homepage = "https://github.com/blopker/dynimg"
+Repository = "https://github.com/blopker/dynimg"
+
+[tool.maturin]
+features = ["python"]
+module-name = "dynimg._dynimg"
+python-source = "python"
+strip = true
