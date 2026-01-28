@@ -1,6 +1,6 @@
 [package]
 name = "dynimg"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
 description = "A fast library and CLI for rendering HTML/CSS to images"
 license = "MIT"
