@@ -23,7 +23,7 @@ python = ["pyo3"]
 
 [dependencies]
 # Python bindings (optional)
-pyo3 = { version = "0.27", features = ["extension-module"], optional = true }
+pyo3 = { version = "0.27", features = ["extension-module", "abi3-py311"], optional = true }
 
 
 # Blitz rendering engine (from git - matches example.rs)

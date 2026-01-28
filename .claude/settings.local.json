@@ -28,7 +28,8 @@
       "Bash(uv pip install:*)",
       "Bash(maturin init --help:*)",
       "Bash(maturin develop:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(maturin build:*)"
     ]
   }
 }
