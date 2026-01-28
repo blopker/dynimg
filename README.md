@@ -82,11 +82,20 @@ By default, network and filesystem access are disabled for security. Enable them
 # Load images/fonts from URLs
 dynimg input.html -o output.png --allow-net
 
-# Load images/fonts from local filesystem
-dynimg input.html -o output.png --allow-fs
+# Load images/fonts from a local assets directory
+dynimg input.html -o output.png --assets ./assets
 
 # Allow both
-dynimg input.html -o output.png --allow-net --allow-fs
+dynimg input.html -o output.png --allow-net --assets ./assets
+```
+
+When using `--assets`, all local paths are resolved relative to the asset directory. Attempts to load files outside this directory will error:
+
+```html
+<!-- With --assets ./assets -->
+<img src="logo.png">         <!-- loads ./assets/logo.png -->
+<img src="img/hero.png">     <!-- loads ./assets/img/hero.png -->
+<img src="../secret.png">    <!-- ERROR: outside assets directory -->
 ```
 
 For self-contained templates, consider using inline base64 data URIs instead:
@@ -110,7 +119,7 @@ Options:
   -s, --scale <FACTOR>      Scale factor for high-DPI [default: 2]
   -q, --quality <1-100>     JPEG/WebP quality [default: 90]
       --allow-net           Allow network access for loading remote resources
-      --allow-fs            Allow filesystem access for loading local resources
+      --assets <DIR>        Asset directory for local resources (enables filesystem access)
       --help                Print help
       --version             Print version
 
@@ -178,8 +187,8 @@ dynimg uses Blitz for rendering, which supports:
 - Media queries
 - Complex selectors
 - Gradients and shadows
-- Web fonts (via `@font-face`, requires `--allow-net` or `--allow-fs`)
-- Images (requires `--allow-net` or `--allow-fs`, or use data URIs)
+- Web fonts (via `@font-face`, requires `--allow-net` or `--assets`)
+- Images (requires `--allow-net` or `--assets`, or use data URIs)
 
 ## Performance
 
