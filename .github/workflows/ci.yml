@@ -10,7 +10,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # Rust tests
+  # Rust tests and lints
   rust-test:
     runs-on: ubuntu-latest
     steps:
@@ -42,37 +42,94 @@ jobs:
       - name: Check formatting
         run: cargo fmt -- --check
 
-  # Build Python wheels
-  python-build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        python-version: ['3.11']
-
+  # Build Linux x86_64 wheel (same as release)
+  build-linux-x86_64:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install system dependencies (Linux)
-        if: runner.os == 'Linux'
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: x86_64
+          args: --release --out dist --features python
+          sccache: "true"
+          manylinux: auto
+          before-script-linux: |
+            yum install -y fontconfig-devel
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel-linux-x86_64
+          path: dist
+
+  # Build Linux aarch64 wheel (same as release)
+  build-linux-aarch64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: aarch64
+          args: --release --out dist --features python
+          manylinux: manylinux_2_28
+          before-script-linux: |
+            apt-get update && apt-get install -y libfontconfig1-dev
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel-linux-aarch64
+          path: dist
+
+  # Build macOS wheels (same as release)
+  build-macos:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        target: [x86_64, aarch64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist --features python
+          sccache: "true"
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel-macos-${{ matrix.target }}
+          path: dist
+
+  # Test Python wheel (install and run basic tests)
+  test-python:
+    needs: [build-linux-x86_64]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.11"
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install maturin
-        run: pip install maturin
-
-      - name: Build wheel
-        run: maturin build --release --features python
+      - name: Download wheel
+        uses: actions/download-artifact@v4
+        with:
+          name: wheel-linux-x86_64
+          path: dist
 
       - name: Install wheel
-        run: pip install target/wheels/*.whl
+        run: pip install dist/*.whl
 
       - name: Test Python import
         run: |
@@ -85,9 +142,3 @@ jobs:
           assert img.width == 100
           assert img.height == 100
           "
-
-      - name: Upload wheel
-        uses: actions/upload-artifact@v4
-        with:
-          name: wheel-${{ matrix.os }}-${{ matrix.python-version }}
-          path: target/wheels/*.whl
