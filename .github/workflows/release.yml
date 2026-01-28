@@ -32,20 +32,20 @@ jobs:
           name: wheels-linux-x86_64
           path: dist
 
-  # Build wheels for Linux aarch64 (needs newer toolchain for ring crate)
+  # Build wheels for Linux aarch64 (native ARM runner, no cross-compilation)
   linux-aarch64:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
 
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
-          target: aarch64
           args: --release --out dist --features python
-          manylinux: manylinux_2_28
+          sccache: "true"
+          manylinux: auto
           before-script-linux: |
-            apt-get update && apt-get install -y libfontconfig1-dev
+            yum install -y fontconfig-devel
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
