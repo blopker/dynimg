@@ -7,7 +7,8 @@
       "mcp__kagi__kagi_search_fetch",
       "Bash(cargo build:*)",
       "Bash(cargo tree:*)",
-      "Bash(cargo run:*)"
+      "Bash(cargo run:*)",
+      "Bash(cargo clippy:*)"
     ]
   }
 }

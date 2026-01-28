@@ -1,7 +1,7 @@
-use anyrender::{render_to_buffer, PaintScene as _};
+use anyhow::{Context, Result, bail};
+use anyrender::{PaintScene as _, render_to_buffer};
 use anyrender_vello_cpu::VelloCpuImageRenderer;
-use anyhow::{bail, Context, Result};
-use blitz_dom::{util::Color, DocumentConfig};
+use blitz_dom::{DocumentConfig, util::Color};
 use blitz_html::HtmlDocument;
 use blitz_net::Provider;
 use blitz_paint::paint_scene;
@@ -65,10 +65,10 @@ impl AssetProvider {
 impl NetProvider for AssetProvider {
     fn fetch(&self, _doc_id: usize, request: Request, handler: Box<dyn NetHandler>) {
         let url = request.url.to_string();
-        if let Some(path) = self.resolve_path(&url) {
-            if let Ok(data) = fs::read(&path) {
-                handler.bytes(url, Bytes::from(data));
-            }
+        if let Some(path) = self.resolve_path(&url)
+            && let Ok(data) = fs::read(&path)
+        {
+            handler.bytes(url, Bytes::from(data));
         }
     }
 }
@@ -101,11 +101,12 @@ impl NetProvider for CombinedProvider {
         let url = request.url.to_string();
 
         // Check if it's a file URL or relative path that assets can handle
-        if !url.starts_with("http://") && !url.starts_with("https://") {
-            if let Some(ref assets) = self.assets {
-                assets.fetch(doc_id, request, handler);
-                return;
-            }
+        if !url.starts_with("http://")
+            && !url.starts_with("https://")
+            && let Some(ref assets) = self.assets
+        {
+            assets.fetch(doc_id, request, handler);
+            return;
         }
 
         // Otherwise try network
@@ -231,7 +232,14 @@ async fn main() -> Result<()> {
     };
 
     // Render the document
-    let buffer = render_html(&html, width, height, scale, args.allow_net, args.assets.as_deref())?;
+    let buffer = render_html(
+        &html,
+        width,
+        height,
+        scale,
+        args.allow_net,
+        args.assets.as_deref(),
+    )?;
 
     // Encode and write output
     let render_width = buffer.width;
@@ -242,10 +250,22 @@ async fn main() -> Result<()> {
             write_png(&args.output, &buffer.data, render_width, render_height)?;
         }
         OutputFormat::Jpeg => {
-            write_jpeg(&args.output, &buffer.data, render_width, render_height, quality)?;
+            write_jpeg(
+                &args.output,
+                &buffer.data,
+                render_width,
+                render_height,
+                quality,
+            )?;
         }
         OutputFormat::WebP => {
-            write_webp(&args.output, &buffer.data, render_width, render_height, quality)?;
+            write_webp(
+                &args.output,
+                &buffer.data,
+                render_width,
+                render_height,
+                quality,
+            )?;
         }
     }
 
@@ -413,7 +433,8 @@ fn write_png(path: &Path, buffer: &[u8], width: u32, height: u32) -> Result<()> 
     // Set pixels-per-meter for 144 DPI
     const PPM: u32 = (144.0 * 39.3701) as u32;
 
-    let file = fs::File::create(path).with_context(|| format!("Failed to create file: {}", path.display()))?;
+    let file = fs::File::create(path)
+        .with_context(|| format!("Failed to create file: {}", path.display()))?;
 
     let mut encoder = png::Encoder::new(file, width, height);
     encoder.set_color(png::ColorType::Rgba);

@@ -1,18 +1,18 @@
 [package]
 name = "dynimg"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 description = "A fast CLI tool for generating high-quality images from HTML/CSS"
 license = "MIT"
 repository = "https://github.com/blopker/dynimg"
 
 [dependencies]
 # Blitz rendering engine (from git - matches example.rs)
-blitz-dom = { git = "https://github.com/DioxusLabs/blitz.git#4a98ed3" }
-blitz-html = { git = "https://github.com/DioxusLabs/blitz.git#4a98ed3" }
-blitz-net = { git = "https://github.com/DioxusLabs/blitz.git#4a98ed3" }
-blitz-paint = { git = "https://github.com/DioxusLabs/blitz.git#4a98ed3" }
-blitz-traits = { git = "https://github.com/DioxusLabs/blitz.git#4a98ed3" }
+blitz-dom = { git = "https://github.com/DioxusLabs/blitz.git", rev = "4a98ed3" }
+blitz-html = { git = "https://github.com/DioxusLabs/blitz.git", rev = "4a98ed3" }
+blitz-net = { git = "https://github.com/DioxusLabs/blitz.git", rev = "4a98ed3" }
+blitz-paint = { git = "https://github.com/DioxusLabs/blitz.git", rev = "4a98ed3" }
+blitz-traits = { git = "https://github.com/DioxusLabs/blitz.git", rev = "4a98ed3" }
 
 # Anyrender - use the same version blitz uses (from crates.io)
 anyrender = "0.7"
