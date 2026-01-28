@@ -193,16 +193,22 @@ async fn main() -> Result<()> {
     // Detect output format from extension
     let format = OutputFormat::from_path(&args.output)?;
 
-    // Read HTML input
-    let html = if args.input == "-" {
+    // Read HTML input and determine input directory for base URL
+    let (html, input_dir) = if args.input == "-" {
         let mut buffer = String::new();
         io::stdin()
             .read_to_string(&mut buffer)
             .context("Failed to read from stdin")?;
-        buffer
+        (buffer, None)
     } else {
-        fs::read_to_string(&args.input)
-            .with_context(|| format!("Failed to read file: {}", args.input))?
+        let content = fs::read_to_string(&args.input)
+            .with_context(|| format!("Failed to read file: {}", args.input))?;
+        let input_path = Path::new(&args.input);
+        let dir = input_path
+            .parent()
+            .and_then(|p| p.canonicalize().ok())
+            .or_else(|| std::env::current_dir().ok());
+        (content, dir)
     };
 
     // Create provider for assets and/or network
@@ -217,14 +223,13 @@ async fn main() -> Result<()> {
     };
 
     // Build base URL for asset resolution
-    let base_url = args.assets.as_ref().map(|p| {
-        format!(
-            "file://{}/",
-            p.canonicalize()
-                .unwrap_or_else(|_| p.to_path_buf())
-                .display()
-        )
-    });
+    // Priority: --assets flag > input file directory > none
+    let base_url = args
+        .assets
+        .as_ref()
+        .and_then(|p| p.canonicalize().ok())
+        .or(input_dir)
+        .map(|p| format!("file://{}/", p.display()));
 
     // Parse document once
     let mut document = HtmlDocument::from_html(

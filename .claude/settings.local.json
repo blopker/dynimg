@@ -9,7 +9,11 @@
       "Bash(cargo tree:*)",
       "Bash(cargo run:*)",
       "Bash(cargo clippy:*)",
-      "WebFetch(domain:docs.rs)"
+      "WebFetch(domain:docs.rs)",
+      "Bash(chmod:*)",
+      "Bash(./scripts/render-examples.sh:*)",
+      "Bash(bash scripts/render-examples.sh:*)",
+      "Bash(./target/release/dynimg:*)"
     ]
   }
 }

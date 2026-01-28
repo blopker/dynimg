@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="dynimg:width" content="1000">
+  <meta name="dynimg:height" content="600">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .container {
+      width: 1000px;
+      height: 600px;
+      display: flex;
+      padding: 40px;
+      gap: 40px;
+    }
+    .image-side {
+      flex: 1;
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .image-side img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .content-side {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .logo {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 24px;
+    }
+    h1 {
+      font-size: 36px;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container dark-bg">
+    <div class="image-side">
+      <img src="https://placecats.com/500/520" alt="Cat">
+    </div>
+    <div class="content-side">
+      <img class="logo" src="logo.svg" alt="Logo">
+      <h1 class="text-white">Mixed Assets</h1>
+      <p class="text-white">Combines remote image (placecats.com) with local CSS and SVG.</p>
+      <p class="text-muted" style="margin-top: 20px;">Requires both --allow-net and --assets flags.</p>
+    </div>
+  </div>
+</body>
+</html>

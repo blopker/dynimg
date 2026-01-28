@@ -1,0 +1,44 @@
+/* External stylesheet for testing filesystem loading */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.card {
+  background: white;
+  border-radius: 16px;
+  padding: 40px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.gradient-bg {
+  background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+}
+
+.dark-bg {
+  background: #1a1a2e;
+}
+
+h1 {
+  font-size: 48px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+p {
+  font-size: 20px;
+  line-height: 1.5;
+}
+
+.text-white {
+  color: white;
+}
+
+.text-muted {
+  color: #64748b;
+}

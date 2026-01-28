@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="dynimg:width" content="800">
+  <meta name="dynimg:height" content="400">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .container {
+      width: 800px;
+      height: 400px;
+      display: flex;
+      align-items: center;
+      padding: 60px;
+    }
+    .logo {
+      width: 120px;
+      height: 120px;
+      margin-right: 40px;
+    }
+    .text h1 {
+      font-size: 42px;
+      color: #1e293b;
+    }
+    .text p {
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container gradient-bg">
+    <img class="logo" src="logo.svg" alt="Logo">
+    <div class="text">
+      <h1 class="text-white">Local Assets Test</h1>
+      <p class="text-white">Loads CSS and SVG from the assets directory. Requires --assets flag.</p>
+    </div>
+  </div>
+</body>
+</html>
