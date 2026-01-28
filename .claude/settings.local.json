@@ -3,7 +3,11 @@
     "allow": [
       "Bash(pearl *)",
       "WebFetch(domain:github.com)",
-      "mcp__kagi__kagi_summarizer"
+      "mcp__kagi__kagi_summarizer",
+      "mcp__kagi__kagi_search_fetch",
+      "Bash(cargo build:*)",
+      "Bash(cargo tree:*)",
+      "Bash(cargo run:*)"
     ]
   }
 }

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="dynimg:width" content="1080">
+  <meta name="dynimg:height" content="1080">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: Georgia, 'Times New Roman', serif;
+    }
+    .container {
+      width: 1080px;
+      height: 1080px;
+      background: #fefefe;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 100px;
+      text-align: center;
+    }
+    .quote {
+      font-size: 48px;
+      color: #1a1a1a;
+      line-height: 1.4;
+      font-style: italic;
+      margin-bottom: 40px;
+    }
+    .quote::before {
+      content: '"';
+      font-size: 120px;
+      color: #e5e5e5;
+      display: block;
+      margin-bottom: -40px;
+    }
+    .author {
+      font-size: 24px;
+      color: #666;
+      font-style: normal;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .divider {
+      width: 60px;
+      height: 3px;
+      background: #333;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <p class="quote">The only way to do great work is to love what you do.</p>
+    <div class="divider"></div>
+    <p class="author">Steve Jobs</p>
+  </div>
+</body>
+</html>

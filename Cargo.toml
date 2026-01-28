@@ -1,6 +1,43 @@
 [package]
 name = "dynimg"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
+description = "A fast CLI tool for generating high-quality images from HTML/CSS"
+license = "MIT"
+repository = "https://github.com/blopker/dynimg"
 
 [dependencies]
+# Blitz rendering engine (from git - matches example.rs)
+blitz-dom = { git = "https://github.com/DioxusLabs/blitz.git" }
+blitz-html = { git = "https://github.com/DioxusLabs/blitz.git" }
+blitz-net = { git = "https://github.com/DioxusLabs/blitz.git" }
+blitz-paint = { git = "https://github.com/DioxusLabs/blitz.git" }
+blitz-traits = { git = "https://github.com/DioxusLabs/blitz.git" }
+
+# Anyrender - use the same version blitz uses (from crates.io)
+anyrender = "0.7"
+anyrender_vello_cpu = "0.9"
+
+# Graphics primitives - use the same versions anyrender uses
+peniko = "0.6"
+kurbo = "0.13"
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Image encoding
+png = "0.17"
+image = { version = "0.25", default-features = false, features = ["jpeg", "webp"] }
+
+# Async runtime (needed for blitz-net)
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# For NetProvider implementation
+bytes = "1"
+
+[profile.release]
+lto = 'thin'

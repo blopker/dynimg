@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="dynimg:width" content="1200">
+  <meta name="dynimg:height" content="675">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    .card {
+      width: 1200px;
+      height: 675px;
+      background: #0f172a;
+      display: flex;
+      padding: 60px;
+    }
+    .content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .tag {
+      display: inline-block;
+      background: #3b82f6;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 24px;
+      width: fit-content;
+    }
+    h1 {
+      color: white;
+      font-size: 56px;
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 20px;
+    }
+    p {
+      color: #94a3b8;
+      font-size: 24px;
+      line-height: 1.5;
+    }
+    .avatar {
+      width: 200px;
+      height: 200px;
+      background: linear-gradient(135deg, #06b6d4, #3b82f6);
+      border-radius: 100px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      align-self: center;
+      margin-left: 60px;
+    }
+    .avatar-text {
+      color: white;
+      font-size: 72px;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="content">
+      <span class="tag">Tutorial</span>
+      <h1>Getting Started with Rust</h1>
+      <p>Learn the fundamentals of Rust programming language with practical examples.</p>
+    </div>
+    <div class="avatar">
+      <span class="avatar-text">RS</span>
+    </div>
+  </div>
+</body>
+</html>
