@@ -310,7 +310,8 @@ async fn main() -> Result<()> {
     };
 
     // Render the document
-    let buffer = render_document(&mut document, &provider, width, height, scale, args.verbose).await?;
+    let buffer =
+        render_document(&mut document, &provider, width, height, scale, args.verbose).await?;
 
     // Encode and write output
     let render_width = buffer.width;
@@ -532,19 +533,13 @@ fn write_jpeg(path: &Path, buffer: &[u8], width: u32, height: u32, quality: u8) 
     Ok(())
 }
 
-fn write_webp(path: &Path, buffer: &[u8], width: u32, height: u32, _quality: u8) -> Result<()> {
-    // Note: image crate's webp encoder doesn't support quality setting for lossy
-    // We use lossless encoding
-    let img = image::RgbaImage::from_raw(width, height, buffer.to_vec())
-        .context("Failed to create image buffer")?;
+fn write_webp(path: &Path, buffer: &[u8], width: u32, height: u32, quality: u8) -> Result<()> {
+    // Use webp crate for lossy encoding with quality control
+    let encoder = webp::Encoder::from_rgba(buffer, width, height);
+    let webp_data = encoder.encode(quality as f32);
 
-    let mut file = fs::File::create(path)
-        .with_context(|| format!("Failed to create file: {}", path.display()))?;
-
-    let encoder = image::codecs::webp::WebPEncoder::new_lossless(&mut file);
-    // Note: image crate's webp encoder doesn't support quality setting for lossy
-    // We use lossless for now
-    encoder.encode(&img, width, height, image::ExtendedColorType::Rgba8)?;
+    fs::write(path, &*webp_data)
+        .with_context(|| format!("Failed to write file: {}", path.display()))?;
 
     Ok(())
 }

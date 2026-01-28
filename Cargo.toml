@@ -27,7 +27,8 @@ clap = { version = "4", features = ["derive"] }
 
 # Image encoding
 png = "0.18"
-image = { version = "0.25", default-features = false, features = ["jpeg", "webp"] }
+image = { version = "0.25", default-features = false, features = ["jpeg"] }
+webp = "0.3"
 
 # Async runtime (needed for blitz-net)
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

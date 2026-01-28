@@ -18,7 +18,9 @@
       "Bash(gh search issues:*)",
       "Bash(RUST_LOG=blitz_dom=debug,blitz_net=debug ./target/release/dynimg:*)",
       "Bash(unzip:*)",
-      "Bash(md5:*)"
+      "Bash(md5:*)",
+      "Bash(cargo search:*)",
+      "Bash(cargo add:*)"
     ]
   }
 }

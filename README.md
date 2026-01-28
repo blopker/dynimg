@@ -39,13 +39,13 @@ dynimg input.html -o output.png
 ### Output Formats
 
 ```bash
-# PNG (default, lossless)
+# PNG (lossless)
 dynimg input.html -o image.png
 
-# WebP (smaller file size)
-dynimg input.html -o image.webp
+# WebP (lossy, smallest file size)
+dynimg input.html -o image.webp --quality 90
 
-# JPEG (with quality setting)
+# JPEG (lossy)
 dynimg input.html -o image.jpg --quality 90
 ```
 
