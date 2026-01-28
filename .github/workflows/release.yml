@@ -27,7 +27,11 @@ jobs:
           sccache: "true"
           manylinux: auto
           before-script-linux: |
-            yum install -y fontconfig-devel
+            if command -v yum &> /dev/null; then
+              yum install -y fontconfig-devel
+            elif command -v apt-get &> /dev/null; then
+              apt-get update && apt-get install -y libfontconfig1-dev
+            fi
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
