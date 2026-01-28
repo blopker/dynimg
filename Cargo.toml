@@ -8,11 +8,11 @@ repository = "https://github.com/blopker/dynimg"
 
 [dependencies]
 # Blitz rendering engine (from git - matches example.rs)
-blitz-dom = { git = "https://github.com/DioxusLabs/blitz.git" }
-blitz-html = { git = "https://github.com/DioxusLabs/blitz.git" }
-blitz-net = { git = "https://github.com/DioxusLabs/blitz.git" }
-blitz-paint = { git = "https://github.com/DioxusLabs/blitz.git" }
-blitz-traits = { git = "https://github.com/DioxusLabs/blitz.git" }
+blitz-dom = { git = "https://github.com/DioxusLabs/blitz.git#4a98ed3" }
+blitz-html = { git = "https://github.com/DioxusLabs/blitz.git#4a98ed3" }
+blitz-net = { git = "https://github.com/DioxusLabs/blitz.git#4a98ed3" }
+blitz-paint = { git = "https://github.com/DioxusLabs/blitz.git#4a98ed3" }
+blitz-traits = { git = "https://github.com/DioxusLabs/blitz.git#4a98ed3" }
 
 # Anyrender - use the same version blitz uses (from crates.io)
 anyrender = "0.7"
