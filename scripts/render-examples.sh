@@ -73,6 +73,7 @@ run_test "Without flags" false "$DYNIMG" "$EXAMPLES_DIR/mixed-assets.html" -o "$
 run_test "With --allow-net only" false "$DYNIMG" "$EXAMPLES_DIR/mixed-assets.html" -o "$OUTPUT_DIR/mixed-net-only.png" --allow-net
 run_test "With --assets only" false "$DYNIMG" "$EXAMPLES_DIR/mixed-assets.html" -o "$OUTPUT_DIR/mixed-assets-only.png" --assets "$ASSETS_DIR"
 run_test "With both flags" false "$DYNIMG" "$EXAMPLES_DIR/mixed-assets.html" -o "$OUTPUT_DIR/mixed-both-flags.png" --allow-net --assets "$ASSETS_DIR"
+run_test "With both flags" false "$DYNIMG" "$EXAMPLES_DIR/google-fonts.html" -o "$OUTPUT_DIR/google-fonts.png" --allow-net --assets "$ASSETS_DIR"
 
 echo ""
 echo "--- OG Image Templates ---"

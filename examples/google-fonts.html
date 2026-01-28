@@ -1,0 +1,79 @@
+<!doctype html>
+<html>
+    <head>
+        <meta name="dynimg:width" content="800" />
+        <meta name="dynimg:height" content="500" />
+        <!--
+    NOTE: Google Fonts via @font-face currently don't load in Blitz.
+    This is a known limitation. The CSS is fetched but font files aren't registered.
+    Workaround: Use system fonts, or download fonts and use --assets flag.
+  -->
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Playwrite+IN+Guides&display=swap"
+            rel="stylesheet"
+        />
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                font-family: "Inter", sans-serif;
+            }
+            .container {
+                width: 800px;
+                height: 500px;
+                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                padding: 60px;
+            }
+            h1 {
+                font-family: "Playwrite IN Guides", cursive;
+                font-size: 56px;
+                font-weight: 400;
+                color: white;
+                margin-bottom: 20px;
+                line-height: 1.2;
+            }
+            p {
+                font-family: "Inter", system-ui, sans-serif;
+                font-size: 22px;
+                color: #94a3b8;
+                font-weight: 400;
+                line-height: 1.6;
+            }
+            .highlight {
+                color: #60a5fa;
+                font-weight: 600;
+            }
+            .note {
+                margin-top: 30px;
+                padding: 16px;
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 8px;
+                font-size: 14px;
+                color: #64748b;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Google Fonts Example</h1>
+            <p>
+                This example attempts to use
+                <span class="highlight">Playfair Display</span> and
+                <span class="highlight">Inter</span> from Google Fonts.
+            </p>
+            <div class="note">
+                <strong>Note:</strong> @font-face fonts from Google Fonts don't
+                currently load in Blitz. Falls back to Georgia/system-ui. For
+                custom fonts, download and use --assets.
+            </div>
+        </div>
+    </body>
+</html>
