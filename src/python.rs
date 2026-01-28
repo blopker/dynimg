@@ -5,6 +5,50 @@ use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use std::path::PathBuf;
 
+/// RAII guard to temporarily suppress stdout (blitz prints parse warnings to stdout)
+struct SuppressStdout {
+    saved_fd: libc::c_int,
+}
+
+impl SuppressStdout {
+    fn new() -> Option<Self> {
+        unsafe {
+            // Save current stdout
+            let saved_fd = libc::dup(libc::STDOUT_FILENO);
+            if saved_fd < 0 {
+                return None;
+            }
+
+            // Open /dev/null
+            let null_fd = libc::open(c"/dev/null".as_ptr(), libc::O_WRONLY);
+            if null_fd < 0 {
+                libc::close(saved_fd);
+                return None;
+            }
+
+            // Redirect stdout to /dev/null
+            if libc::dup2(null_fd, libc::STDOUT_FILENO) < 0 {
+                libc::close(null_fd);
+                libc::close(saved_fd);
+                return None;
+            }
+
+            libc::close(null_fd);
+            Some(Self { saved_fd })
+        }
+    }
+}
+
+impl Drop for SuppressStdout {
+    fn drop(&mut self) {
+        unsafe {
+            // Restore original stdout
+            libc::dup2(self.saved_fd, libc::STDOUT_FILENO);
+            libc::close(self.saved_fd);
+        }
+    }
+}
+
 /// Options for rendering HTML to an image
 #[pyclass]
 #[derive(Clone)]
@@ -186,6 +230,8 @@ fn render(py: Python<'_>, html: &str, options: Option<RenderOptions>) -> PyResul
         let rt = tokio::runtime::Runtime::new()
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
+        // Suppress stdout during rendering (blitz prints parse errors to stdout)
+        let _suppress = SuppressStdout::new();
         let result = rt.block_on(rust_render(html, opts));
 
         match result {
@@ -225,6 +271,8 @@ fn render_to_file(
         let rt = tokio::runtime::Runtime::new()
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
+        // Suppress stdout during rendering (blitz prints parse errors to stdout)
+        let _suppress = SuppressStdout::new();
         let result = rt.block_on(crate::render_to_file(html, path, opts, quality));
 
         match result {

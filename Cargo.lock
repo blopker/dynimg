@@ -630,7 +630,7 @@ dependencies = [
 
 [[package]]
 name = "dynimg"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "anyhow",
  "anyrender",
@@ -644,6 +644,7 @@ dependencies = [
  "clap",
  "image",
  "kurbo",
+ "libc",
  "peniko",
  "png 0.18.0",
  "pyo3",

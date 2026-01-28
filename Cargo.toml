@@ -1,6 +1,6 @@
 [package]
 name = "dynimg"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2024"
 description = "A fast library and CLI for rendering HTML/CSS to images"
 license = "MIT"
@@ -19,11 +19,12 @@ path = "src/main.rs"
 
 [features]
 default = []
-python = ["pyo3"]
+python = ["pyo3", "libc"]
 
 [dependencies]
 # Python bindings (optional)
 pyo3 = { version = "0.27", features = ["extension-module", "abi3-py311"], optional = true }
+libc = { version = "0.2", optional = true }
 
 
 # Blitz rendering engine (from git - matches example.rs)
