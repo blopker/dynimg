@@ -2,9 +2,19 @@
 name = "dynimg"
 version = "0.1.0"
 edition = "2024"
-description = "A fast CLI tool for generating high-quality images from HTML/CSS"
+description = "A fast library and CLI for rendering HTML/CSS to images"
 license = "MIT"
 repository = "https://github.com/blopker/dynimg"
+keywords = ["html", "css", "image", "render", "screenshot"]
+categories = ["multimedia::images", "rendering"]
+
+[lib]
+name = "dynimg"
+path = "src/lib.rs"
+
+[[bin]]
+name = "dynimg"
+path = "src/main.rs"
 
 [dependencies]
 # Blitz rendering engine (from git - matches example.rs)
