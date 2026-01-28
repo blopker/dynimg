@@ -20,7 +20,9 @@
       "Bash(unzip:*)",
       "Bash(md5:*)",
       "Bash(cargo search:*)",
-      "Bash(cargo add:*)"
+      "Bash(cargo add:*)",
+      "Bash(cargo doc:*)",
+      "Bash(cargo test:*)"
     ]
   }
 }

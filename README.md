@@ -1,32 +1,101 @@
 # dynimg
 
-A fast CLI tool for generating high-quality images from HTML/CSS. Built on [Blitz](https://github.com/DioxusLabs/blitz), a modular Rust rendering engine.
+A fast Rust library and CLI for rendering HTML/CSS to images. Built on [Blitz](https://github.com/DioxusLabs/blitz), a modular Rust rendering engine.
 
 Perfect for generating dynamic images like Open Graph (OG) images, social media cards, email headers, and more.
 
 ## Features
 
-- **Multiple output formats**: PNG, WebP, and JPEG
-- **High-quality rendering**: 2x resolution scaling for crisp images
+- **Library + CLI**: Use as a Rust library or command-line tool
+- **Multiple output formats**: PNG, WebP (lossy), and JPEG
+- **High-quality rendering**: Configurable scale factor for retina displays
 - **Fast**: Native Rust performance with no browser overhead
-- **Flexible sizing**: Configurable width, height, and scale factor
 - **Secure by default**: Network and filesystem access disabled unless explicitly enabled
 
 ## Installation
+
+### As a CLI tool
 
 ```bash
 cargo install dynimg
 ```
 
-Or build from source:
+### As a library
 
-```bash
-git clone https://github.com/blopker/dynimg
-cd dynimg
-cargo build --release
+```toml
+[dependencies]
+dynimg = "0.1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 ```
 
-## Usage
+## Library Usage
+
+```rust
+use dynimg::{render, RenderOptions};
+
+#[tokio::main]
+async fn main() -> Result<(), dynimg::Error> {
+    let html = r#"
+        <html>
+        <body style="background: linear-gradient(135deg, #667eea, #764ba2);
+                     display: flex; justify-content: center; align-items: center;
+                     height: 630px; margin: 0;">
+            <h1 style="color: white; font-family: system-ui; font-size: 64px;">
+                Hello World
+            </h1>
+        </body>
+        </html>
+    "#;
+
+    // Render with default options (1200×auto viewport, 2x scale)
+    let image = render(html, RenderOptions::default()).await?;
+
+    // Save as PNG
+    image.save_png("output.png")?;
+
+    // Or get raw bytes
+    let png_bytes = image.to_png()?;
+    let webp_bytes = image.to_webp(90);
+    let jpeg_bytes = image.to_jpeg(90)?;
+
+    Ok(())
+}
+```
+
+### Configuration
+
+```rust
+use dynimg::RenderOptions;
+
+// Using builder pattern
+let options = RenderOptions::default()
+    .width(1200)
+    .height(630)
+    .scale(2.0)
+    .allow_net()
+    .assets_dir("./assets");
+
+// Or struct initialization
+let options = RenderOptions {
+    width: 1200,
+    height: Some(630),
+    scale: 2.0,
+    allow_net: true,
+    assets_dir: Some("./assets".into()),
+    base_url: None,
+};
+```
+
+### Convenience function
+
+```rust
+use dynimg::{render_to_file, RenderOptions};
+
+// Render directly to a file (format detected from extension)
+render_to_file(html, "output.webp", RenderOptions::default(), 90).await?;
+```
+
+## CLI Usage
 
 ### Basic Usage
 
@@ -209,3 +278,7 @@ Typical rendering time: 50-200ms depending on complexity.
 ## License
 
 MIT
+
+## AI Warning
+
+This is AI slop, if you want to use it, fork and make it your own!
