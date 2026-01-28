@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(pearl *)"
+      "Bash(pearl *)",
+      "WebFetch(domain:github.com)",
+      "mcp__kagi__kagi_summarizer"
     ]
   }
 }
