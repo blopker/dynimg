@@ -1,6 +1,6 @@
 //! Python bindings for dynimg
 
-use crate::{render as rust_render, RenderOptions as RustRenderOptions, RenderedImage};
+use crate::{RenderOptions as RustRenderOptions, RenderedImage, render as rust_render};
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use std::path::PathBuf;
@@ -153,7 +153,10 @@ impl Image {
     }
 
     fn __repr__(&self) -> String {
-        format!("Image(width={}, height={})", self.inner.width, self.inner.height)
+        format!(
+            "Image(width={}, height={})",
+            self.inner.width, self.inner.height
+        )
     }
 }
 
@@ -174,10 +177,12 @@ impl Image {
 #[pyfunction]
 #[pyo3(signature = (html, options=None))]
 fn render(py: Python<'_>, html: &str, options: Option<RenderOptions>) -> PyResult<Image> {
-    let opts: RustRenderOptions = options.unwrap_or_else(|| RenderOptions::new(1200, None, 2.0, false, None, None)).into();
+    let opts: RustRenderOptions = options
+        .unwrap_or_else(|| RenderOptions::new(1200, None, 2.0, false, None, None))
+        .into();
 
-    // Run the async render function
-    py.allow_threads(|| {
+    // Run the async render function (release GIL during blocking operation)
+    py.detach(|| {
         let rt = tokio::runtime::Runtime::new()
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
@@ -212,9 +217,11 @@ fn render_to_file(
     options: Option<RenderOptions>,
     quality: u8,
 ) -> PyResult<()> {
-    let opts: RustRenderOptions = options.unwrap_or_else(|| RenderOptions::new(1200, None, 2.0, false, None, None)).into();
+    let opts: RustRenderOptions = options
+        .unwrap_or_else(|| RenderOptions::new(1200, None, 2.0, false, None, None))
+        .into();
 
-    py.allow_threads(|| {
+    py.detach(|| {
         let rt = tokio::runtime::Runtime::new()
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
 

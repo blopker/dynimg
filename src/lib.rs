@@ -539,7 +539,13 @@ fn encode_png(buffer: &[u8], width: u32, height: u32) -> Result<Vec<u8>, Error> 
     Ok(output)
 }
 
-fn write_jpeg(path: &Path, buffer: &[u8], width: u32, height: u32, quality: u8) -> Result<(), Error> {
+fn write_jpeg(
+    path: &Path,
+    buffer: &[u8],
+    width: u32,
+    height: u32,
+    quality: u8,
+) -> Result<(), Error> {
     let data = encode_jpeg(buffer, width, height, quality)?;
     fs::write(path, data)?;
     Ok(())
@@ -551,8 +557,7 @@ fn encode_jpeg(buffer: &[u8], width: u32, height: u32, quality: u8) -> Result<Ve
         .flat_map(|rgba| [rgba[0], rgba[1], rgba[2]])
         .collect();
 
-    let img =
-        image::RgbImage::from_raw(width, height, rgb_buffer).ok_or(Error::InvalidBuffer)?;
+    let img = image::RgbImage::from_raw(width, height, rgb_buffer).ok_or(Error::InvalidBuffer)?;
 
     let mut output = Vec::new();
     let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut output, quality);
@@ -561,7 +566,13 @@ fn encode_jpeg(buffer: &[u8], width: u32, height: u32, quality: u8) -> Result<Ve
     Ok(output)
 }
 
-fn write_webp(path: &Path, buffer: &[u8], width: u32, height: u32, quality: u8) -> Result<(), Error> {
+fn write_webp(
+    path: &Path,
+    buffer: &[u8],
+    width: u32,
+    height: u32,
+    quality: u8,
+) -> Result<(), Error> {
     let data = encode_webp(buffer, width, height, quality);
     fs::write(path, data)?;
     Ok(())

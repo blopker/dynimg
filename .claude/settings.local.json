@@ -29,7 +29,8 @@
       "Bash(maturin init --help:*)",
       "Bash(maturin develop:*)",
       "Bash(python:*)",
-      "Bash(maturin build:*)"
+      "Bash(maturin build:*)",
+      "WebSearch"
     ]
   }
 }
