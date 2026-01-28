@@ -1,7 +1,7 @@
 use anyhow::{Context, Result, bail};
 use anyrender::{PaintScene as _, render_to_buffer};
 use anyrender_vello_cpu::VelloCpuImageRenderer;
-use blitz_dom::{DocumentConfig, util::Color};
+use blitz_dom::{BaseDocument, DocumentConfig, util::Color};
 use blitz_html::HtmlDocument;
 use blitz_net::Provider;
 use blitz_paint::paint_scene;
@@ -205,41 +205,66 @@ async fn main() -> Result<()> {
             .with_context(|| format!("Failed to read file: {}", args.input))?
     };
 
-    // Parse meta tags for options
-    let meta_options = parse_meta_tags(&html);
+    // Create provider for assets and/or network
+    let has_provider = args.allow_net || args.assets.is_some();
+    let provider = if has_provider {
+        Some(Arc::new(CombinedProvider::new(
+            args.assets.clone(),
+            args.allow_net,
+        )))
+    } else {
+        None
+    };
+
+    // Build base URL for asset resolution
+    let base_url = args.assets.as_ref().map(|p| {
+        format!(
+            "file://{}/",
+            p.canonicalize()
+                .unwrap_or_else(|_| p.to_path_buf())
+                .display()
+        )
+    });
+
+    // Parse document once
+    let mut document = HtmlDocument::from_html(
+        &html,
+        DocumentConfig {
+            base_url,
+            net_provider: provider.clone().map(|p| p as _),
+            viewport: Some(Viewport::new(
+                args.width * (args.scale as u32),
+                800 * (args.scale as u32),
+                args.scale,
+                ColorScheme::Light,
+            )),
+            ..Default::default()
+        },
+    );
+
+    // Extract meta options from parsed document
+    let meta_options = extract_meta_options(document.as_ref());
 
     // Merge options: CLI args take precedence over meta tags
-    let width = args.width; // CLI always provides a default
-    let height = args.height.or(meta_options.height);
-    let scale = args.scale; // CLI always provides a default
-    let quality = args.quality; // CLI always provides a default
-
-    // Override with meta tags only if CLI used defaults
     let width = if args.width == 1200 {
-        meta_options.width.unwrap_or(width)
+        meta_options.width.unwrap_or(args.width)
     } else {
-        width
+        args.width
     };
+    let height = args.height.or(meta_options.height);
     let scale = if (args.scale - 2.0).abs() < 0.001 {
-        meta_options.scale.unwrap_or(scale)
+        meta_options.scale.unwrap_or(args.scale)
     } else {
-        scale
+        args.scale
     };
     let quality = if args.quality == 90 {
-        meta_options.quality.unwrap_or(quality)
+        meta_options.quality.unwrap_or(args.quality)
     } else {
-        quality
+        args.quality
     };
 
     // Render the document
-    let buffer = render_html(
-        &html,
-        width,
-        height,
-        scale,
-        args.allow_net,
-        args.assets.as_deref(),
-    )?;
+    let buffer = render_document(&mut document, &provider, width, height, scale)?;
 
     // Encode and write output
     let render_width = buffer.width;
@@ -279,49 +304,58 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-/// Parse dynimg meta tags from HTML
-fn parse_meta_tags(html: &str) -> RenderOptions {
+/// Extract dynimg meta tags from a parsed document
+fn extract_meta_options(doc: &BaseDocument) -> RenderOptions {
     let mut options = RenderOptions::default();
 
-    // Simple regex-free parsing for meta tags
-    for line in html.lines() {
-        if let Some(content) = extract_meta_content(line, "dynimg:width") {
-            options.width = content.parse().ok();
+    // Use a stack-based traversal starting from root
+    let mut stack = vec![0usize]; // Start from root node (id 0)
+
+    while let Some(node_id) = stack.pop() {
+        let Some(node) = doc.get_node(node_id) else {
+            continue;
+        };
+
+        // Add children to stack for traversal
+        stack.extend(node.children.iter().copied());
+
+        // Check if this is an element node
+        let Some(element) = node.element_data() else {
+            continue;
+        };
+
+        // Check if it's a meta element
+        if !element.name.local.eq_str_ignore_ascii_case("meta") {
+            continue;
         }
-        if let Some(content) = extract_meta_content(line, "dynimg:height") {
-            options.height = content.parse().ok();
+
+        // Find name and content attributes by iterating
+        let mut name_value: Option<&str> = None;
+        let mut content_value: Option<&str> = None;
+
+        for attr in element.attrs.iter() {
+            if attr.name.local.eq_str_ignore_ascii_case("name") {
+                name_value = Some(&attr.value);
+            } else if attr.name.local.eq_str_ignore_ascii_case("content") {
+                content_value = Some(&attr.value);
+            }
         }
-        if let Some(content) = extract_meta_content(line, "dynimg:scale") {
-            options.scale = content.parse().ok();
-        }
-        if let Some(content) = extract_meta_content(line, "dynimg:quality") {
-            options.quality = content.parse().ok();
+
+        let (Some(name), Some(content)) = (name_value, content_value) else {
+            continue;
+        };
+
+        // Parse dynimg options
+        match name {
+            "dynimg:width" => options.width = content.parse().ok(),
+            "dynimg:height" => options.height = content.parse().ok(),
+            "dynimg:scale" => options.scale = content.parse().ok(),
+            "dynimg:quality" => options.quality = content.parse().ok(),
+            _ => {}
         }
     }
 
     options
-}
-
-/// Extract content from a meta tag like <meta name="dynimg:width" content="1200">
-fn extract_meta_content(line: &str, name: &str) -> Option<String> {
-    let line_lower = line.to_lowercase();
-    if !line_lower.contains("<meta") || !line_lower.contains(name) {
-        return None;
-    }
-
-    // Find content attribute value
-    let content_start = line_lower.find("content=")?;
-    let after_content = &line[content_start + 8..];
-
-    // Handle both single and double quotes
-    let quote_char = after_content.chars().next()?;
-    if quote_char != '"' && quote_char != '\'' {
-        return None;
-    }
-
-    let value_start = 1;
-    let value_end = after_content[value_start..].find(quote_char)?;
-    Some(after_content[value_start..value_start + value_end].to_string())
 }
 
 struct RenderBuffer {
@@ -330,53 +364,15 @@ struct RenderBuffer {
     height: u32,
 }
 
-fn render_html(
-    html: &str,
+fn render_document(
+    document: &mut HtmlDocument,
+    provider: &Option<Arc<CombinedProvider>>,
     width: u32,
     height: Option<u32>,
     scale: f32,
-    allow_net: bool,
-    assets_dir: Option<&Path>,
 ) -> Result<RenderBuffer> {
-    // Create combined provider for assets and/or network
-    let has_provider = allow_net || assets_dir.is_some();
-    let provider = if has_provider {
-        Some(Arc::new(CombinedProvider::new(
-            assets_dir.map(|p| p.to_path_buf()),
-            allow_net,
-        )))
-    } else {
-        None
-    };
-
-    // Build base URL for asset resolution
-    let base_url = assets_dir.map(|p| {
-        format!(
-            "file://{}/",
-            p.canonicalize()
-                .unwrap_or_else(|_| p.to_path_buf())
-                .display()
-        )
-    });
-
-    // Create document
-    let mut document = HtmlDocument::from_html(
-        html,
-        DocumentConfig {
-            base_url,
-            net_provider: provider.clone().map(|p| p as _),
-            viewport: Some(Viewport::new(
-                width * (scale as u32),
-                800 * (scale as u32), // Initial height, will be recalculated
-                scale,
-                ColorScheme::Light,
-            )),
-            ..Default::default()
-        },
-    );
-
     // Resolve resource requests
-    if let Some(ref p) = provider {
+    if let Some(p) = provider {
         loop {
             document.resolve(0.0);
             if p.is_empty() {
