@@ -1,12 +1,12 @@
 # dynimg
 
-A fast Rust library and CLI for rendering HTML/CSS to images. Built on [Blitz](https://github.com/DioxusLabs/blitz), a modular Rust rendering engine.
+A fast library and CLI for rendering HTML/CSS to images. Use from Python, Rust, or the command line. Built on [Blitz](https://github.com/DioxusLabs/blitz), a modular Rust rendering engine.
 
 Perfect for generating dynamic images like Open Graph (OG) images, social media cards, email headers, and more.
 
 ## Features
 
-- **Library + CLI**: Use as a Rust library or command-line tool
+- **Python + Rust + CLI**: Use from Python, as a Rust library, or command-line tool
 - **Multiple output formats**: PNG, WebP (lossy), and JPEG
 - **High-quality rendering**: Configurable scale factor for retina displays
 - **Fast**: Native Rust performance with no browser overhead
@@ -14,13 +14,19 @@ Perfect for generating dynamic images like Open Graph (OG) images, social media 
 
 ## Installation
 
-### As a CLI tool
+### Python
+
+```bash
+pip install dynimg
+```
+
+### Rust CLI
 
 ```bash
 cargo install dynimg
 ```
 
-### As a library
+### Rust Library
 
 ```toml
 [dependencies]
@@ -201,6 +207,70 @@ Options can also be set via HTML meta tags (see below). CLI flags override meta 
 Note: Output image dimensions = viewport × scale. A 1200×630 viewport at 2x scale produces a 2400×1260 image.
 ```
 
+## Python Usage
+
+```python
+import dynimg
+
+html = """
+<html>
+<body style="background: linear-gradient(135deg, #667eea, #764ba2);
+             display: flex; justify-content: center; align-items: center;
+             height: 630px; margin: 0;">
+    <h1 style="color: white; font-family: system-ui; font-size: 64px;">
+        Hello World
+    </h1>
+</body>
+</html>
+"""
+
+# Render with default options
+image = dynimg.render(html)
+
+# Save to file
+image.save("output.png")
+
+# Or get bytes
+png_bytes = image.to_png()
+webp_bytes = image.to_webp(quality=90)
+jpeg_bytes = image.to_jpeg(quality=90)
+```
+
+### Configuration
+
+```python
+import dynimg
+
+options = dynimg.RenderOptions(
+    width=1200,          # Viewport width (default: 1200)
+    height=630,          # Viewport height (default: auto)
+    scale=2.0,           # Output scale factor (default: 2.0)
+    allow_net=True,      # Allow network requests (default: False)
+    assets_dir="./assets",  # Local assets directory (default: None)
+    base_url="https://example.com",  # Base URL for relative URLs (default: None)
+)
+
+image = dynimg.render(html, options)
+```
+
+### Direct File Output
+
+```python
+# Render directly to a file (format detected from extension)
+dynimg.render_to_file(html, "output.webp", quality=90)
+
+# With options
+dynimg.render_to_file(html, "output.png", options=options)
+```
+
+### Image Properties
+
+```python
+image = dynimg.render(html)
+print(f"Size: {image.width}x{image.height}")
+print(f"Bytes: {len(image.data)}")
+```
+
 ## HTML Meta Tags
 
 You can configure rendering options directly in your HTML using meta tags. CLI flags take precedence over meta tags.
@@ -274,6 +344,47 @@ dynimg is designed for speed:
 - Efficient image encoding
 
 Typical rendering time: 50-200ms depending on complexity.
+
+## Development
+
+### Building
+
+```bash
+# Build CLI
+cargo build --release
+
+# Build Python wheel
+pip install maturin
+maturin build --release --features python
+
+# Install locally for development
+maturin develop --features python
+```
+
+### Running Tests
+
+```bash
+cargo test
+cargo clippy -- -D warnings
+cargo fmt -- --check
+```
+
+## Releasing
+
+Releases are automated via GitHub Actions. To create a new release:
+
+1. Update the version in `Cargo.toml`
+2. Create and push a git tag:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+This triggers the release workflow which:
+- Builds wheels for Linux (x86_64, aarch64) and macOS (x86_64, aarch64)
+- Creates a GitHub Release with all artifacts
+- (Optional) Publishes to PyPI (when enabled)
 
 ## License
 

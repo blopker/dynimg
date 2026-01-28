@@ -26,6 +26,8 @@ jobs:
           args: --release --out dist --features python
           sccache: "true"
           manylinux: auto
+          before-script-linux: |
+            yum install -y fontconfig-devel || apt-get update && apt-get install -y libfontconfig1-dev
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
