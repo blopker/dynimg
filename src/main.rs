@@ -15,6 +15,7 @@ use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use tracing_subscriber::EnvFilter;
 
 /// A NetProvider that serves files from a sandboxed assets directory
 struct AssetProvider {
@@ -77,10 +78,11 @@ impl NetProvider for AssetProvider {
 struct CombinedProvider {
     assets: Option<AssetProvider>,
     network: Option<Arc<Provider>>,
+    verbose: bool,
 }
 
 impl CombinedProvider {
-    fn new(assets_dir: Option<PathBuf>, allow_net: bool) -> Self {
+    fn new(assets_dir: Option<PathBuf>, allow_net: bool, verbose: bool) -> Self {
         Self {
             assets: assets_dir.map(AssetProvider::new),
             network: if allow_net {
@@ -88,6 +90,7 @@ impl CombinedProvider {
             } else {
                 None
             },
+            verbose,
         }
     }
 
@@ -100,18 +103,30 @@ impl NetProvider for CombinedProvider {
     fn fetch(&self, doc_id: usize, request: Request, handler: Box<dyn NetHandler>) {
         let url = request.url.to_string();
 
+        if self.verbose {
+            eprintln!("[fetch] {} (method: {:?})", url, request.method);
+        }
+
         // Check if it's a file URL or relative path that assets can handle
         if !url.starts_with("http://")
             && !url.starts_with("https://")
             && let Some(ref assets) = self.assets
         {
+            if self.verbose {
+                eprintln!("[fetch] -> assets provider");
+            }
             assets.fetch(doc_id, request, handler);
             return;
         }
 
         // Otherwise try network
         if let Some(ref network) = self.network {
+            if self.verbose {
+                eprintln!("[fetch] -> network provider");
+            }
             network.fetch(doc_id, request, handler);
+        } else if self.verbose {
+            eprintln!("[fetch] -> SKIPPED (no network provider)");
         }
     }
 }
@@ -150,6 +165,10 @@ struct Args {
     /// Asset directory for local resources (enables filesystem access)
     #[arg(long)]
     assets: Option<PathBuf>,
+
+    /// Enable verbose logging
+    #[arg(short = 'v', long)]
+    verbose: bool,
 }
 
 /// Options that can be set via meta tags or CLI
@@ -190,6 +209,18 @@ impl OutputFormat {
 async fn main() -> Result<()> {
     let args = Args::parse();
 
+    // Initialize tracing if verbose
+    if args.verbose {
+        tracing_subscriber::fmt()
+            .with_env_filter(
+                EnvFilter::from_default_env()
+                    .add_directive("blitz_dom=debug".parse().unwrap())
+                    .add_directive("blitz_net=debug".parse().unwrap()),
+            )
+            .with_target(true)
+            .init();
+    }
+
     // Detect output format from extension
     let format = OutputFormat::from_path(&args.output)?;
 
@@ -217,10 +248,20 @@ async fn main() -> Result<()> {
         Some(Arc::new(CombinedProvider::new(
             args.assets.clone(),
             args.allow_net,
+            args.verbose,
         )))
     } else {
         None
     };
+
+    if args.verbose {
+        eprintln!("[config] allow_net: {}", args.allow_net);
+        eprintln!("[config] assets: {:?}", args.assets);
+        eprintln!(
+            "[config] width: {}, height: {:?}, scale: {}",
+            args.width, args.height, args.scale
+        );
+    }
 
     // Build base URL for asset resolution
     // Priority: --assets flag > input file directory > none
@@ -269,7 +310,7 @@ async fn main() -> Result<()> {
     };
 
     // Render the document
-    let buffer = render_document(&mut document, &provider, width, height, scale)?;
+    let buffer = render_document(&mut document, &provider, width, height, scale, args.verbose).await?;
 
     // Encode and write output
     let render_width = buffer.width;
@@ -369,20 +410,39 @@ struct RenderBuffer {
     height: u32,
 }
 
-fn render_document(
+async fn render_document(
     document: &mut HtmlDocument,
     provider: &Option<Arc<CombinedProvider>>,
     width: u32,
     height: Option<u32>,
     scale: f32,
+    verbose: bool,
 ) -> Result<RenderBuffer> {
-    // Resolve resource requests
+    // Resolve resource requests (images, stylesheets, fonts)
     if let Some(p) = provider {
+        let mut resolve_count = 0;
+
+        // Process network requests until all are complete
         loop {
             document.resolve(0.0);
+            resolve_count += 1;
             if p.is_empty() {
                 break;
             }
+            // Brief async sleep to allow network I/O to progress
+            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+        }
+
+        // Extra resolve cycles to process any resources that arrived
+        // Resources like fonts need to be registered after fetching
+        for _ in 0..3 {
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+            document.resolve(0.0);
+            resolve_count += 1;
+        }
+
+        if verbose {
+            eprintln!("[resolve] completed {} cycles", resolve_count);
         }
     }
 

@@ -14,7 +14,11 @@
       "Bash(./scripts/render-examples.sh:*)",
       "Bash(bash scripts/render-examples.sh:*)",
       "Bash(./target/release/dynimg:*)",
-      "Bash(open:*)"
+      "Bash(open:*)",
+      "Bash(gh search issues:*)",
+      "Bash(RUST_LOG=blitz_dom=debug,blitz_net=debug ./target/release/dynimg:*)",
+      "Bash(unzip:*)",
+      "Bash(md5:*)"
     ]
   }
 }

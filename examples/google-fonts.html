@@ -3,11 +3,7 @@
     <head>
         <meta name="dynimg:width" content="800" />
         <meta name="dynimg:height" content="500" />
-        <!--
-    NOTE: Google Fonts via @font-face currently don't load in Blitz.
-    This is a known limitation. The CSS is fetched but font files aren't registered.
-    Workaround: Use system fonts, or download fonts and use --assets flag.
-  -->
+        <!-- Google Fonts work! Requires --allow-net flag -->
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link
@@ -70,9 +66,8 @@
                 <span class="highlight">Inter</span> from Google Fonts.
             </p>
             <div class="note">
-                <strong>Note:</strong> @font-face fonts from Google Fonts don't
-                currently load in Blitz. Falls back to Georgia/system-ui. For
-                custom fonts, download and use --assets.
+                <strong>Note:</strong> Google Fonts work with the --allow-net
+                flag. For offline use, download fonts and use --assets.
             </div>
         </div>
     </body>
