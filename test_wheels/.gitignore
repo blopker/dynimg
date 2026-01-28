@@ -1,0 +1,4 @@
+# Ignore downloaded wheels and test artifacts
+*.whl
+.venv/
+test_output.*
