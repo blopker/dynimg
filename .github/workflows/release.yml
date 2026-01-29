@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  # Build wheels for Linux x86_64
+  # Build wheels for Linux x86_64 (glibc)
   linux-x86_64:
     runs-on: ubuntu-latest
     steps:
@@ -32,7 +32,7 @@ jobs:
           name: wheels-linux-x86_64
           path: dist
 
-  # Build wheels for Linux aarch64 (native ARM runner, no cross-compilation)
+  # Build wheels for Linux aarch64 (glibc, native ARM runner)
   linux-aarch64:
     runs-on: ubuntu-24.04-arm
     steps:
@@ -51,6 +51,49 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: wheels-linux-aarch64
+          path: dist
+
+  # Build wheels for Linux x86_64 (musl/Alpine)
+  linux-x86_64-musl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: x86_64
+          args: --release --out dist --features python
+          sccache: "true"
+          manylinux: musllinux_1_2
+          before-script-linux: |
+            apk add --no-cache fontconfig-dev
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-linux-x86_64-musl
+          path: dist
+
+  # Build wheels for Linux aarch64 (musl/Alpine, native ARM runner)
+  linux-aarch64-musl:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          args: --release --out dist --features python
+          sccache: "true"
+          manylinux: musllinux_1_2
+          before-script-linux: |
+            apk add --no-cache fontconfig-dev
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-linux-aarch64-musl
           path: dist
 
   # Build wheels for macOS
@@ -97,7 +140,7 @@ jobs:
   publish:
     name: Publish to PyPI
     runs-on: ubuntu-latest
-    needs: [linux-x86_64, linux-aarch64, macos, sdist]
+    needs: [linux-x86_64, linux-aarch64, linux-x86_64-musl, linux-aarch64-musl, macos, sdist]
     if: startsWith(github.ref, 'refs/tags/')
     environment:
       name: pypi
@@ -119,7 +162,7 @@ jobs:
   github-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: [linux-x86_64, linux-aarch64, macos, sdist]
+    needs: [linux-x86_64, linux-aarch64, linux-x86_64-musl, linux-aarch64-musl, macos, sdist]
     if: startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@v4
