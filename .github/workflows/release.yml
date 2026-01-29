@@ -67,7 +67,7 @@ jobs:
           sccache: "true"
           manylinux: musllinux_1_2
           before-script-linux: |
-            apk add --no-cache fontconfig-dev
+            apt-get update && apt-get install -y libfontconfig1-dev
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -88,7 +88,7 @@ jobs:
           sccache: "true"
           manylinux: musllinux_1_2
           before-script-linux: |
-            apk add --no-cache fontconfig-dev
+            apt-get update && apt-get install -y libfontconfig1-dev
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
