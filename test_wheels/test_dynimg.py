@@ -2,6 +2,20 @@
 """Test script for dynimg wheels."""
 
 import sys
+import time
+from contextlib import contextmanager
+
+
+class RunTimer:
+    def __init__(self):
+        self.start = time.perf_counter()
+
+    @contextmanager
+    def measure(self, name):
+        t0 = time.perf_counter()
+        yield
+        t1 = time.perf_counter()
+        print(f"[{t1 - self.start:.3f}s] {name} took {(t1 - t0) * 1000:.2f}ms")
 
 
 def test_import():
@@ -17,11 +31,26 @@ def test_render_basic():
     """Test basic rendering."""
     import dynimg
 
+    timer = RunTimer()
     html = '<html><body style="background:blue;"><h1>Test</h1></body></html>'
-    img = dynimg.render(html, dynimg.RenderOptions(width=100, height=100, scale=1.0))
+
+    with timer.measure("Render"):
+        img = dynimg.render(
+            html, dynimg.RenderOptions(width=100, height=100, scale=1.0)
+        )
 
     assert img.width == 100, f"Expected width 100, got {img.width}"
     assert img.height == 100, f"Expected height 100, got {img.height}"
+
+    with timer.measure("Save PNG"):
+        img.save_png("test_basic.png")
+
+    with timer.measure("Save JPEG"):
+        img.save_jpeg("test_basic.jpg")
+
+    with timer.measure("Save WebP"):
+        img.save_webp("test_basic.webp")
+
     print(f"Basic render: {img.width}x{img.height}")
     return True
 
@@ -30,6 +59,7 @@ def test_render_gradient():
     """Test gradient rendering."""
     import dynimg
 
+    timer = RunTimer()
     html = """
     <html>
     <body style="background: linear-gradient(135deg, #667eea, #764ba2);
@@ -42,10 +72,21 @@ def test_render_gradient():
     </html>
     """
     options = dynimg.RenderOptions(width=1200, height=630, scale=2.0)
-    img = dynimg.render(html, options)
+
+    with timer.measure("Render"):
+        img = dynimg.render(html, options)
 
     assert img.width == 2400, f"Expected width 2400, got {img.width}"
     assert img.height == 1260, f"Expected height 1260, got {img.height}"
+    with timer.measure("Save WebP"):
+        img.save_webp("test_gradient.webp")
+
+    with timer.measure("Save PNG"):
+        img.save_png("test_gradient.png")
+
+    with timer.measure("Save JPEG"):
+        img.save_jpeg("test_gradient.jpg")
+
     print(f"Gradient render: {img.width}x{img.height}")
     return True
 
@@ -56,31 +97,31 @@ def test_save_formats():
 
     import dynimg
 
+    timer = RunTimer()
     html = '<html><body style="background:red; width:50px; height:50px;"></body></html>'
-    img = dynimg.render(html, dynimg.RenderOptions(width=50, height=50, scale=1.0))
+    with timer.measure("Render"):
+        img = dynimg.render(html, dynimg.RenderOptions(width=50, height=50, scale=1.0))
 
     # Test PNG
-    img.save_png("test_output.png")
+    with timer.measure("Save PNG"):
+        img.save_png("test_output.png")
     assert os.path.exists("test_output.png"), "PNG file not created"
     png_size = os.path.getsize("test_output.png")
     print(f"PNG saved: {png_size} bytes")
 
     # Test WebP
-    img.save_webp("test_output.webp")
+    with timer.measure("Save WebP"):
+        img.save_webp("test_output.webp")
     assert os.path.exists("test_output.webp"), "WebP file not created"
     webp_size = os.path.getsize("test_output.webp")
     print(f"WebP saved: {webp_size} bytes")
 
     # Test JPEG
-    img.save_jpeg("test_output.jpg", quality=90)
+    with timer.measure("Save JPEG"):
+        img.save_jpeg("test_output.jpg", quality=90)
     assert os.path.exists("test_output.jpg"), "JPEG file not created"
     jpeg_size = os.path.getsize("test_output.jpg")
     print(f"JPEG saved: {jpeg_size} bytes")
-
-    # Cleanup
-    os.remove("test_output.png")
-    os.remove("test_output.webp")
-    os.remove("test_output.jpg")
 
     return True
 
@@ -89,10 +130,13 @@ def test_to_bytes():
     """Test encoding to bytes."""
     import dynimg
 
+    timer = RunTimer()
     html = (
         '<html><body style="background:green; width:50px; height:50px;"></body></html>'
     )
-    img = dynimg.render(html, dynimg.RenderOptions(width=50, height=50, scale=1.0))
+
+    with timer.measure("Render"):
+        img = dynimg.render(html, dynimg.RenderOptions(width=50, height=50, scale=1.0))
 
     png_bytes = img.to_png()
     assert len(png_bytes) > 0, "PNG bytes empty"
@@ -118,21 +162,24 @@ def test_render_to_file():
 
     import dynimg
 
+    timer = RunTimer()
     html = (
         '<html><body style="background:yellow; width:50px; height:50px;"></body></html>'
     )
 
-    dynimg.render_to_file(html, "test_direct.png")
+    with timer.measure("render_to_file PNG"):
+        dynimg.render_to_file(html, "test_direct.png")
     assert os.path.exists("test_direct.png"), "Direct PNG not created"
     print(f"render_to_file PNG: {os.path.getsize('test_direct.png')} bytes")
     os.remove("test_direct.png")
 
-    dynimg.render_to_file(
-        html,
-        "test_direct.webp",
-        options=dynimg.RenderOptions(width=100, height=100, scale=1.0),
-        quality=85,
-    )
+    with timer.measure("render_to_file WebP"):
+        dynimg.render_to_file(
+            html,
+            "test_direct.webp",
+            options=dynimg.RenderOptions(width=100, height=100, scale=1.0),
+            quality=85,
+        )
     assert os.path.exists("test_direct.webp"), "Direct WebP not created"
     print(f"render_to_file WebP: {os.path.getsize('test_direct.webp')} bytes")
     os.remove("test_direct.webp")
