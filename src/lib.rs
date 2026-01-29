@@ -172,9 +172,9 @@ impl RenderedImage {
         write_jpeg(path.as_ref(), &self.data, self.width, self.height, quality)
     }
 
-    /// Save the image as WebP with the specified quality (1-100)
-    pub fn save_webp(&self, path: impl AsRef<Path>, quality: u8) -> Result<(), Error> {
-        write_webp(path.as_ref(), &self.data, self.width, self.height, quality)
+    /// Save the image as lossless WebP
+    pub fn save_webp(&self, path: impl AsRef<Path>) -> Result<(), Error> {
+        write_webp_lossless(path.as_ref(), &self.data, self.width, self.height)
     }
 
     /// Encode the image as PNG bytes
@@ -187,9 +187,9 @@ impl RenderedImage {
         encode_jpeg(&self.data, self.width, self.height, quality)
     }
 
-    /// Encode the image as WebP bytes with the specified quality (1-100)
-    pub fn to_webp(&self, quality: u8) -> Vec<u8> {
-        encode_webp(&self.data, self.width, self.height, quality)
+    /// Encode the image as lossless WebP bytes
+    pub fn to_webp(&self) -> Vec<u8> {
+        encode_webp_lossless(&self.data, self.width, self.height)
     }
 }
 
@@ -288,7 +288,7 @@ pub async fn render_to_file(
     match ext.as_deref() {
         Some("png") => image.save_png(path),
         Some("jpg") | Some("jpeg") => image.save_jpeg(path, quality),
-        Some("webp") => image.save_webp(path, quality),
+        Some("webp") => image.save_webp(path),
         _ => image.save_png(path), // Default to PNG
     }
 }
@@ -566,20 +566,14 @@ fn encode_jpeg(buffer: &[u8], width: u32, height: u32, quality: u8) -> Result<Ve
     Ok(output)
 }
 
-fn write_webp(
-    path: &Path,
-    buffer: &[u8],
-    width: u32,
-    height: u32,
-    quality: u8,
-) -> Result<(), Error> {
-    let data = encode_webp(buffer, width, height, quality);
+fn write_webp_lossless(path: &Path, buffer: &[u8], width: u32, height: u32) -> Result<(), Error> {
+    let data = encode_webp_lossless(buffer, width, height);
     fs::write(path, data)?;
     Ok(())
 }
 
-fn encode_webp(buffer: &[u8], width: u32, height: u32, quality: u8) -> Vec<u8> {
+fn encode_webp_lossless(buffer: &[u8], width: u32, height: u32) -> Vec<u8> {
     let encoder = webp::Encoder::from_rgba(buffer, width, height);
-    let webp_data = encoder.encode(quality as f32);
+    let webp_data = encoder.encode_lossless();
     webp_data.to_vec()
 }

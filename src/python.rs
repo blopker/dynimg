@@ -162,11 +162,10 @@ impl Image {
             .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
     }
 
-    /// Save the image as WebP with the specified quality (1-100)
-    #[pyo3(signature = (path, quality=90))]
-    fn save_webp(&self, path: &str, quality: u8) -> PyResult<()> {
+    /// Save the image as lossless WebP
+    fn save_webp(&self, path: &str) -> PyResult<()> {
         self.inner
-            .save_webp(path, quality)
+            .save_webp(path)
             .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
     }
 
@@ -189,10 +188,9 @@ impl Image {
         Ok(PyBytes::new(py, &data))
     }
 
-    /// Encode the image as WebP bytes with the specified quality (1-100)
-    #[pyo3(signature = (quality=90))]
-    fn to_webp<'py>(&self, py: Python<'py>, quality: u8) -> Bound<'py, PyBytes> {
-        let data = self.inner.to_webp(quality);
+    /// Encode the image as lossless WebP bytes
+    fn to_webp<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        let data = self.inner.to_webp();
         PyBytes::new(py, &data)
     }
 

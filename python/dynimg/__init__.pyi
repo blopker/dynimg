@@ -48,8 +48,8 @@ class Image:
         """Save the image as JPEG with the specified quality (1-100)"""
         ...
 
-    def save_webp(self, path: str, quality: int = 90) -> None:
-        """Save the image as WebP with the specified quality (1-100)"""
+    def save_webp(self, path: str) -> None:
+        """Save the image as lossless WebP"""
         ...
 
     def to_png(self) -> bytes:
@@ -60,8 +60,8 @@ class Image:
         """Encode the image as JPEG bytes with the specified quality (1-100)"""
         ...
 
-    def to_webp(self, quality: int = 90) -> bytes:
-        """Encode the image as WebP bytes with the specified quality (1-100)"""
+    def to_webp(self) -> bytes:
+        """Encode the image as lossless WebP bytes"""
         ...
 
 def render(html: str, options: Optional[RenderOptions] = None) -> Image:
@@ -98,7 +98,7 @@ def render_to_file(
         html: The HTML content to render
         path: Output file path (.png, .jpg, .webp)
         options: Rendering options (optional)
-        quality: JPEG/WebP quality 1-100 (default: 90)
+        quality: JPEG quality 1-100 (default: 90, ignored for PNG/WebP)
 
     Example:
         >>> import dynimg

@@ -7,7 +7,7 @@ Perfect for generating dynamic images like Open Graph (OG) images, social media 
 ## Features
 
 - **Python + Rust + CLI**: Use from Python, as a Rust library, or command-line tool
-- **Multiple output formats**: PNG, WebP (lossy), and JPEG
+- **Multiple output formats**: PNG, WebP (lossless), and JPEG
 - **High-quality rendering**: Configurable scale factor for retina displays
 - **Fast**: Native Rust performance with no browser overhead
 - **Secure by default**: Network and filesystem access disabled unless explicitly enabled
@@ -61,7 +61,7 @@ async fn main() -> Result<(), dynimg::Error> {
 
     // Or get raw bytes
     let png_bytes = image.to_png()?;
-    let webp_bytes = image.to_webp(90);
+    let webp_bytes = image.to_webp();
     let jpeg_bytes = image.to_jpeg(90)?;
 
     Ok(())
@@ -98,7 +98,7 @@ let options = RenderOptions {
 use dynimg::{render_to_file, RenderOptions};
 
 // Render directly to a file (format detected from extension)
-render_to_file(html, "output.webp", RenderOptions::default(), 90).await?;
+render_to_file(html, "output.png", RenderOptions::default(), 90).await?;
 ```
 
 ## CLI Usage
@@ -117,8 +117,8 @@ dynimg input.html -o output.png
 # PNG (lossless)
 dynimg input.html -o image.png
 
-# WebP (lossy, smallest file size)
-dynimg input.html -o image.webp --quality 90
+# WebP (lossless)
+dynimg input.html -o image.webp
 
 # JPEG (lossy)
 dynimg input.html -o image.jpg --quality 90
@@ -195,7 +195,7 @@ Options:
   -w, --width <PIXELS>      Viewport width in CSS pixels [default: 1200]
   -H, --height <PIXELS>     Viewport height in CSS pixels [default: document height]
   -s, --scale <FACTOR>      Scale multiplier for output (2 = 2x resolution) [default: 2]
-  -q, --quality <1-100>     JPEG/WebP quality [default: 90]
+  -q, --quality <1-100>     JPEG quality [default: 90]
       --allow-net           Allow network access for loading remote resources
       --assets <DIR>        Asset directory for local resources
   -v, --verbose             Enable verbose logging
@@ -232,7 +232,7 @@ image.save("output.png")
 
 # Or get bytes
 png_bytes = image.to_png()
-webp_bytes = image.to_webp(quality=90)
+webp_bytes = image.to_webp()
 jpeg_bytes = image.to_jpeg(quality=90)
 ```
 
@@ -257,10 +257,13 @@ image = dynimg.render(html, options)
 
 ```python
 # Render directly to a file (format detected from extension)
-dynimg.render_to_file(html, "output.webp", quality=90)
+dynimg.render_to_file(html, "output.png")
 
 # With options
 dynimg.render_to_file(html, "output.png", options=options)
+
+# JPEG with quality setting
+dynimg.render_to_file(html, "output.jpg", quality=90)
 ```
 
 ### Image Properties
@@ -279,7 +282,7 @@ You can configure rendering options directly in your HTML using meta tags. CLI f
 <meta name="dynimg:width" content="1200">   <!-- viewport width -->
 <meta name="dynimg:height" content="630">   <!-- viewport height -->
 <meta name="dynimg:scale" content="2">      <!-- output multiplier -->
-<meta name="dynimg:quality" content="90">   <!-- JPEG/WebP quality -->
+<meta name="dynimg:quality" content="90">   <!-- JPEG quality -->
 ```
 
 This is useful for templates that should always render at specific dimensions. Remember: the output image size is viewport × scale.

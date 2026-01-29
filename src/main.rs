@@ -29,7 +29,7 @@ struct Args {
     #[arg(short, long, default_value = "2")]
     scale: f32,
 
-    /// JPEG/WebP quality (1-100)
+    /// JPEG quality (1-100)
     #[arg(short, long, default_value = "90")]
     quality: u8,
 
@@ -136,7 +136,7 @@ async fn main() -> Result<()> {
     match format {
         OutputFormat::Png => image.save_png(&args.output)?,
         OutputFormat::Jpeg => image.save_jpeg(&args.output, args.quality)?,
-        OutputFormat::WebP => image.save_webp(&args.output, args.quality)?,
+        OutputFormat::WebP => image.save_webp(&args.output)?,
     }
 
     eprintln!(

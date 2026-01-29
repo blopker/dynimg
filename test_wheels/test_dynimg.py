@@ -66,7 +66,7 @@ def test_save_formats():
     print(f"PNG saved: {png_size} bytes")
 
     # Test WebP
-    img.save_webp("test_output.webp", quality=90)
+    img.save_webp("test_output.webp")
     assert os.path.exists("test_output.webp"), "WebP file not created"
     webp_size = os.path.getsize("test_output.webp")
     print(f"WebP saved: {webp_size} bytes")
@@ -78,9 +78,9 @@ def test_save_formats():
     print(f"JPEG saved: {jpeg_size} bytes")
 
     # Cleanup
-    # os.remove("test_output.png")
-    # os.remove("test_output.webp")
-    # os.remove("test_output.jpg")
+    os.remove("test_output.png")
+    os.remove("test_output.webp")
+    os.remove("test_output.jpg")
 
     return True
 
@@ -99,7 +99,7 @@ def test_to_bytes():
     assert png_bytes[:8] == b"\x89PNG\r\n\x1a\n", "Invalid PNG header"
     print(f"PNG bytes: {len(png_bytes)} bytes")
 
-    webp_bytes = img.to_webp(quality=90)
+    webp_bytes = img.to_webp()
     assert len(webp_bytes) > 0, "WebP bytes empty"
     assert webp_bytes[:4] == b"RIFF", "Invalid WebP header"
     print(f"WebP bytes: {len(webp_bytes)} bytes")

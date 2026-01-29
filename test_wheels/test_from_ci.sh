@@ -63,10 +63,4 @@ echo "=== Running tests ==="
 python test_dynimg.py
 
 echo ""
-echo "=== Cleanup ==="
-deactivate
-rm -rf .venv
-rm -f *.whl
-
-echo ""
 echo "Done!"

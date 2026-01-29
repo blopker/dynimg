@@ -30,7 +30,8 @@
       "Bash(maturin develop:*)",
       "Bash(python:*)",
       "Bash(maturin build:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(.venv/bin/python:*)"
     ]
   }
 }
