@@ -451,18 +451,22 @@ async fn render_document(
 ) -> Result<RenderedImage, Error> {
     // Resolve resource requests
     if let Some(p) = provider {
-        loop {
-            document.resolve(0.0);
-            if p.is_empty() {
-                break;
-            }
-            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
-        }
+        // Wait for all network requests including cascading requests.
+        // CSS stylesheets may trigger font fetches when processed, so we need
+        // multiple consecutive "empty" checks to ensure all cascading requests complete.
+        // Using 5 cycles provides safety margin for complex pages with many resources.
+        let mut consecutive_empty = 0u32;
+        const REQUIRED_EMPTY_CYCLES: u32 = 5;
 
-        // Extra resolve cycles for font registration
-        for _ in 0..3 {
-            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        while consecutive_empty < REQUIRED_EMPTY_CYCLES {
             document.resolve(0.0);
+            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+
+            if p.is_empty() {
+                consecutive_empty += 1;
+            } else {
+                consecutive_empty = 0;
+            }
         }
     }
 
@@ -521,11 +525,13 @@ fn write_png(path: &Path, buffer: &[u8], width: u32, height: u32) -> Result<(), 
 fn encode_png(buffer: &[u8], width: u32, height: u32) -> Result<Vec<u8>, Error> {
     const PPM: u32 = (144.0 * 39.3701) as u32;
 
-    let mut output = Vec::new();
+    // Pre-allocate output (PNG is typically 10-50% of raw size after compression)
+    let mut output = Vec::with_capacity(buffer.len() / 4);
     {
         let mut encoder = png::Encoder::new(&mut output, width, height);
         encoder.set_color(png::ColorType::Rgba);
         encoder.set_depth(png::BitDepth::Eight);
+        encoder.set_compression(png::Compression::Fast);
         encoder.set_pixel_dims(Some(png::PixelDimensions {
             xppu: PPM,
             yppu: PPM,
@@ -552,14 +558,19 @@ fn write_jpeg(
 }
 
 fn encode_jpeg(buffer: &[u8], width: u32, height: u32, quality: u8) -> Result<Vec<u8>, Error> {
-    let rgb_buffer: Vec<u8> = buffer
-        .chunks(4)
-        .flat_map(|rgba| [rgba[0], rgba[1], rgba[2]])
-        .collect();
+    // Pre-allocate RGB buffer (3 bytes per pixel instead of 4)
+    let pixel_count = (width * height) as usize;
+    let mut rgb_buffer = Vec::with_capacity(pixel_count * 3);
+
+    // Convert RGBA to RGB in-place
+    for chunk in buffer.chunks_exact(4) {
+        rgb_buffer.extend_from_slice(&chunk[..3]);
+    }
 
     let img = image::RgbImage::from_raw(width, height, rgb_buffer).ok_or(Error::InvalidBuffer)?;
 
-    let mut output = Vec::new();
+    // Pre-allocate output (estimate ~10% of raw size for compressed JPEG)
+    let mut output = Vec::with_capacity(pixel_count / 10);
     let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut output, quality);
     encoder.encode_image(&img)?;
 
