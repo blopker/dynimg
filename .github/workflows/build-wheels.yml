@@ -75,27 +75,6 @@ jobs:
           name: wheels-linux-x86_64-musl${{ inputs.upload-name-suffix }}
           path: dist
 
-  # Linux aarch64 (musl)
-  linux-aarch64-musl:
-    runs-on: ubuntu-24.04-arm
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build wheels
-        uses: PyO3/maturin-action@v1
-        with:
-          args: --release --out dist --features python
-          sccache: "true"
-          manylinux: musllinux_1_2
-          before-script-linux: |
-            apt-get update && apt-get install -y libfontconfig1-dev
-
-      - name: Upload wheels
-        uses: actions/upload-artifact@v4
-        with:
-          name: wheels-linux-aarch64-musl${{ inputs.upload-name-suffix }}
-          path: dist
-
   # macOS (x86_64 and aarch64)
   macos:
     runs-on: macos-latest
