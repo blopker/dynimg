@@ -11,7 +11,7 @@ env:
 
 jobs:
   # Rust tests and lints
-  rust-test:
+  rust:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -42,74 +42,13 @@ jobs:
       - name: Check formatting
         run: cargo fmt -- --check
 
-  # Build Linux x86_64 wheel (same as release)
-  build-linux-x86_64:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+  # Build all wheels
+  build:
+    uses: ./.github/workflows/build-wheels.yml
 
-      - name: Build wheels
-        uses: PyO3/maturin-action@v1
-        with:
-          target: x86_64
-          args: --release --out dist --features python
-          sccache: "true"
-          manylinux: auto
-          before-script-linux: |
-            yum install -y fontconfig-devel
-
-      - name: Upload wheels
-        uses: actions/upload-artifact@v4
-        with:
-          name: wheel-linux-x86_64
-          path: dist
-
-  # Build Linux aarch64 wheel (native ARM runner, no cross-compilation)
-  build-linux-aarch64:
-    runs-on: ubuntu-24.04-arm
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build wheels
-        uses: PyO3/maturin-action@v1
-        with:
-          args: --release --out dist --features python
-          sccache: "true"
-          manylinux: auto
-          before-script-linux: |
-            yum install -y fontconfig-devel
-
-      - name: Upload wheels
-        uses: actions/upload-artifact@v4
-        with:
-          name: wheel-linux-aarch64
-          path: dist
-
-  # Build macOS wheels (same as release)
-  build-macos:
-    runs-on: macos-latest
-    strategy:
-      matrix:
-        target: [x86_64, aarch64]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build wheels
-        uses: PyO3/maturin-action@v1
-        with:
-          target: ${{ matrix.target }}
-          args: --release --out dist --features python
-          sccache: "true"
-
-      - name: Upload wheels
-        uses: actions/upload-artifact@v4
-        with:
-          name: wheel-macos-${{ matrix.target }}
-          path: dist
-
-  # Test Python wheel (install and run basic tests)
+  # Test Python wheel
   test-python:
-    needs: [build-linux-x86_64]
+    needs: [build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -125,20 +64,11 @@ jobs:
       - name: Download wheel
         uses: actions/download-artifact@v4
         with:
-          name: wheel-linux-x86_64
+          name: wheels-linux-x86_64
           path: dist
 
       - name: Install wheel
         run: pip install dist/*.whl
 
-      - name: Test Python import
-        run: |
-          python -c "import dynimg; print(dynimg.__version__)"
-          python -c "
-          import dynimg
-          html = '<html><body style=\"background:blue;\"><h1>Test</h1></body></html>'
-          img = dynimg.render(html, dynimg.RenderOptions(width=100, height=100, scale=1.0))
-          print(f'Rendered: {img.width}x{img.height}')
-          assert img.width == 100
-          assert img.height == 100
-          "
+      - name: Run tests
+        run: python test_wheels/test_dynimg.py
