@@ -56,6 +56,8 @@ jobs:
   # Linux x86_64 (musl)
   linux-x86_64-musl:
     runs-on: ubuntu-latest
+    env:
+      RUST_FONTCONFIG_DLOPEN: "on"
     steps:
       - uses: actions/checkout@v4
 
@@ -66,8 +68,6 @@ jobs:
           args: --release --out dist --features python
           sccache: "true"
           manylinux: musllinux_1_2
-          before-script-linux: |
-            apt-get update && apt-get install -y libfontconfig1-dev
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
