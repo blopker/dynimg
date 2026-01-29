@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "dynimg"
-version = "0.1.9"
+version = "0.1.10"
 description = "A fast library for rendering HTML/CSS to images"
 readme = "README.md"
 license = { text = "MIT" }
