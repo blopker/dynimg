@@ -574,6 +574,10 @@ fn write_webp_lossless(path: &Path, buffer: &[u8], width: u32, height: u32) -> R
 
 fn encode_webp_lossless(buffer: &[u8], width: u32, height: u32) -> Vec<u8> {
     let encoder = webp::Encoder::from_rgba(buffer, width, height);
-    let webp_data = encoder.encode_lossless();
+    let mut config = webp::WebPConfig::new().unwrap();
+    config.lossless = 1;
+    config.quality = 75.0;
+    config.method = 0; // 0=fastest, 6=slowest (default)
+    let webp_data = encoder.encode_advanced(&config).unwrap();
     webp_data.to_vec()
 }
