@@ -53,28 +53,6 @@ jobs:
           name: wheels-linux-aarch64${{ inputs.upload-name-suffix }}
           path: dist
 
-  # Linux x86_64 (musl)
-  linux-x86_64-musl:
-    runs-on: ubuntu-latest
-    env:
-      RUST_FONTCONFIG_DLOPEN: "on"
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build wheels
-        uses: PyO3/maturin-action@v1
-        with:
-          target: x86_64
-          args: --release --out dist --features python
-          sccache: "true"
-          manylinux: musllinux_1_2
-
-      - name: Upload wheels
-        uses: actions/upload-artifact@v4
-        with:
-          name: wheels-linux-x86_64-musl${{ inputs.upload-name-suffix }}
-          path: dist
-
   # macOS (x86_64 and aarch64)
   macos:
     runs-on: macos-latest
