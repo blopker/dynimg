@@ -80,6 +80,10 @@ echo -e "${GREEN}✓${NC} Updated Cargo.toml"
 sed -i '' "s/^version = \"$CURRENT_VERSION\"/version = \"$NEW_VERSION\"/" pyproject.toml
 echo -e "${GREEN}✓${NC} Updated pyproject.toml"
 
+# Update Cargo.lock
+cargo check --quiet
+echo -e "${GREEN}✓${NC} Updated Cargo.lock"
+
 # Verify versions match
 CARGO_VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
 PYPROJECT_VERSION=$(grep '^version = ' pyproject.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
@@ -98,7 +102,7 @@ echo ""
 echo "=== Committing and tagging ==="
 
 # Commit changes
-git add Cargo.toml pyproject.toml
+git add Cargo.toml Cargo.lock pyproject.toml
 git commit -m "Release v$NEW_VERSION"
 echo -e "${GREEN}✓${NC} Committed changes"
 
