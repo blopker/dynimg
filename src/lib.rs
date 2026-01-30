@@ -236,12 +236,7 @@ pub async fn render(html: &str, options: RenderOptions) -> Result<RenderedImage,
         DocumentConfig {
             base_url,
             net_provider: provider.clone().map(|p| p as _),
-            viewport: Some(Viewport::new(
-                options.width * (options.scale as u32),
-                800 * (options.scale as u32),
-                options.scale,
-                ColorScheme::Light,
-            )),
+            viewport: None,
             ..Default::default()
         },
     );
@@ -249,8 +244,15 @@ pub async fn render(html: &str, options: RenderOptions) -> Result<RenderedImage,
     // Extract meta options and merge with provided options
     let meta_options = extract_meta_options(document.as_ref());
     let width = meta_options.width.unwrap_or(options.width);
-    let height = options.height.or(meta_options.height);
+    let height = meta_options.height.or(options.height);
     let scale = meta_options.scale.unwrap_or(options.scale);
+
+    document.set_viewport(Viewport::new(
+        width * (scale as u32),
+        height.unwrap_or(800) * (scale as u32),
+        scale,
+        ColorScheme::Light,
+    ));
 
     // Render the document
     render_document(&mut document, &provider, width, height, scale).await
