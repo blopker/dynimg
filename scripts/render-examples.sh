@@ -31,20 +31,25 @@ run_test() {
 
     printf "  %-50s " "$name"
 
+    local start_time=$(perl -MTime::HiRes=time -e 'printf "%.3f", time')
     if "$@" > /dev/null 2>&1; then
+        local end_time=$(perl -MTime::HiRes=time -e 'printf "%.3f", time')
+        local elapsed=$(echo "$end_time - $start_time" | bc)
         if [ "$expect_fail" = "true" ]; then
-            echo "UNEXPECTED PASS"
+            printf "UNEXPECTED PASS  (%5.2fs)\n" "$elapsed"
             ((FAILED++))
         else
-            echo "OK"
+            printf "OK               (%5.2fs)\n" "$elapsed"
             ((PASSED++))
         fi
     else
+        local end_time=$(perl -MTime::HiRes=time -e 'printf "%.3f", time')
+        local elapsed=$(echo "$end_time - $start_time" | bc)
         if [ "$expect_fail" = "true" ]; then
-            echo "EXPECTED FAIL"
+            printf "EXPECTED FAIL    (%5.2fs)\n" "$elapsed"
             ((PASSED++))
         else
-            echo "FAIL"
+            printf "FAIL             (%5.2fs)\n" "$elapsed"
             ((FAILED++))
         fi
     fi
@@ -86,12 +91,17 @@ run_test "quote.html" false "$DYNIMG" "$EXAMPLES_DIR/quote.html" -o "$OUTPUT_DIR
 
 echo ""
 echo "--- Stdin Input ---"
+printf "  %-50s " "From stdin"
+start_time=$(perl -MTime::HiRes=time -e 'printf "%.3f", time')
 echo '<html><body style="background:#10b981;padding:50px;"><h1 style="color:white;font-size:48px;">Stdin Test</h1></body></html>' | "$DYNIMG" - -o "$OUTPUT_DIR/stdin-test.png" > /dev/null 2>&1
-if [ $? -eq 0 ]; then
-    echo "  From stdin                                       OK"
+result=$?
+end_time=$(perl -MTime::HiRes=time -e 'printf "%.3f", time')
+elapsed=$(echo "$end_time - $start_time" | bc)
+if [ $result -eq 0 ]; then
+    printf "OK               (%5.2fs)\n" "$elapsed"
     ((PASSED++))
 else
-    echo "  From stdin                                       FAIL"
+    printf "FAIL             (%5.2fs)\n" "$elapsed"
     ((FAILED++))
 fi
 

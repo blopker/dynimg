@@ -32,3 +32,6 @@ clean:
 # Build release wheels
 build:
 	maturin build --release
+
+test_render:
+	./scripts/render-examples.sh
