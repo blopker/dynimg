@@ -214,6 +214,13 @@ import dynimg
 
 html = """
 <html>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+</style>
 <body style="background: linear-gradient(135deg, #667eea, #764ba2);
              display: flex; justify-content: center; align-items: center;
              height: 630px; margin: 0;">
@@ -296,6 +303,11 @@ This is useful for templates that should always render at specific dimensions. R
   <meta name="dynimg:width" content="1200">
   <meta name="dynimg:height" content="630">
   <style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
     .container {
       width: 1200px;
       height: 630px;

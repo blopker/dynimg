@@ -35,3 +35,6 @@ build:
 
 test_render:
 	./scripts/render-examples.sh
+
+release:
+	./scripts/release.sh
