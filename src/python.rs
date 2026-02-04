@@ -50,7 +50,7 @@ impl Drop for SuppressStdout {
 }
 
 /// Options for rendering HTML to an image
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Clone)]
 pub struct RenderOptions {
     /// Viewport width in CSS pixels (default: 1200)
