@@ -8,8 +8,8 @@ Perfect for generating dynamic images like Open Graph (OG) images, social media 
 
 <table>
 <tr>
-<td><img src="tests/snapshots/og-image.png" width="400" alt="OG Image Example"></td>
-<td><img src="tests/snapshots/social-card.png" width="400" alt="Social Card Example"></td>
+<td><img src="https://raw.githubusercontent.com/blopker/dynimg/main/tests/snapshots/og-image.png" width="400" alt="OG Image Example"></td>
+<td><img src="https://raw.githubusercontent.com/blopker/dynimg/main/tests/snapshots/social-card.png" width="400" alt="Social Card Example"></td>
 </tr>
 </table>
 
@@ -148,7 +148,7 @@ PNG and WebP output supports transparent backgrounds. Simply don't set a backgro
 </body>
 ```
 
-<img src="tests/snapshots/transparent.png" width="300" alt="Transparent background example">
+<img src="https://raw.githubusercontent.com/blopker/dynimg/main/tests/snapshots/transparent.png" width="300" alt="Transparent background example">
 
 JPEG doesn't support transparency, so it automatically uses a white background.
 
@@ -327,7 +327,7 @@ This is useful for templates that should always render at specific dimensions. R
 
 ### OG Image
 
-<img src="tests/snapshots/og-image.png" width="500" alt="OG Image Example">
+<img src="https://raw.githubusercontent.com/blopker/dynimg/main/tests/snapshots/og-image.png" width="500" alt="OG Image Example">
 
 <details>
 <summary>View HTML</summary>
@@ -368,7 +368,7 @@ This is useful for templates that should always render at specific dimensions. R
 
 ### Social Card
 
-<img src="tests/snapshots/social-card.png" width="500" alt="Social Card Example">
+<img src="https://raw.githubusercontent.com/blopker/dynimg/main/tests/snapshots/social-card.png" width="500" alt="Social Card Example">
 
 <details>
 <summary>View HTML</summary>
