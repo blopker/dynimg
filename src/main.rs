@@ -103,6 +103,12 @@ async fn main() -> Result<()> {
     };
 
     // Build render options
+    // Use white background for JPEG (no transparency support)
+    let background = match format {
+        OutputFormat::Jpeg => Some("#ffffff".to_string()),
+        _ => None,
+    };
+
     let mut options = RenderOptions {
         width: args.width,
         height: args.height,
@@ -110,6 +116,7 @@ async fn main() -> Result<()> {
         allow_net: args.allow_net,
         assets_dir: args.assets.clone(),
         base_url: None,
+        background,
     };
 
     // Set base URL from input file directory if not using assets

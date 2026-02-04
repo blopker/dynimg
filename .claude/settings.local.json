@@ -34,7 +34,8 @@
       "Bash(.venv/bin/python:*)",
       "Bash(./scripts/snapshot-tests.sh:*)",
       "Bash(bash -x scripts/snapshot-tests.sh:*)",
-      "Bash(head:*)"
+      "Bash(head:*)",
+      "Bash(identify:*)"
     ]
   }
 }

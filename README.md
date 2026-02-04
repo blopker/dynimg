@@ -4,10 +4,20 @@ A fast library and CLI for rendering HTML/CSS to images. Use from Python, Rust, 
 
 Perfect for generating dynamic images like Open Graph (OG) images, social media cards, email headers, and more.
 
+## Example Output
+
+<table>
+<tr>
+<td><img src="tests/snapshots/og-image.png" width="400" alt="OG Image Example"></td>
+<td><img src="tests/snapshots/social-card.png" width="400" alt="Social Card Example"></td>
+</tr>
+</table>
+
 ## Features
 
 - **Python + Rust + CLI**: Use from Python, as a Rust library, or command-line tool
 - **Multiple output formats**: PNG, WebP (lossless), and JPEG
+- **Transparent backgrounds**: PNG and WebP support transparency (JPEG uses white)
 - **High-quality rendering**: Configurable scale factor for retina displays
 - **Fast**: Native Rust performance with no browser overhead
 - **Secure by default**: Network and filesystem access disabled unless explicitly enabled
@@ -79,7 +89,8 @@ let options = RenderOptions::default()
     .height(630)
     .scale(2.0)
     .allow_net()
-    .assets_dir("./assets");
+    .assets_dir("./assets")
+    .background("#ffffff");  // CSS hex color (default: transparent)
 
 // Or struct initialization
 let options = RenderOptions {
@@ -89,6 +100,7 @@ let options = RenderOptions {
     allow_net: true,
     assets_dir: Some("./assets".into()),
     base_url: None,
+    background: Some("#ffffff".into()),  // None = transparent
 };
 ```
 
@@ -114,15 +126,31 @@ dynimg input.html -o output.png
 ### Output Formats
 
 ```bash
-# PNG (lossless)
+# PNG (lossless, supports transparency)
 dynimg input.html -o image.png
 
-# WebP (lossless)
+# WebP (lossless, supports transparency)
 dynimg input.html -o image.webp
 
-# JPEG (lossy)
+# JPEG (lossy, no transparency - uses white background)
 dynimg input.html -o image.jpg --quality 90
 ```
+
+### Transparent Backgrounds
+
+PNG and WebP output supports transparent backgrounds. Simply don't set a background on your HTML body:
+
+```html
+<body style="padding: 20px;">
+  <div style="background: white; border-radius: 8px; padding: 20px;">
+    Content with transparent surrounding area
+  </div>
+</body>
+```
+
+<img src="tests/snapshots/transparent.png" width="300" alt="Transparent background example">
+
+JPEG doesn't support transparency, so it automatically uses a white background.
 
 ### Image Dimensions
 
@@ -255,6 +283,7 @@ options = dynimg.RenderOptions(
     allow_net=True,      # Allow network requests (default: False)
     assets_dir="./assets",  # Local assets directory (default: None)
     base_url="https://example.com",  # Base URL for relative URLs (default: None)
+    background="#ffffff",  # CSS hex color (default: transparent)
 )
 
 image = dynimg.render(html, options)
@@ -294,7 +323,14 @@ You can configure rendering options directly in your HTML using meta tags. CLI f
 
 This is useful for templates that should always render at specific dimensions. Remember: the output image size is viewport × scale.
 
-## Example HTML Template
+## Example Templates
+
+### OG Image
+
+<img src="tests/snapshots/og-image.png" width="500" alt="OG Image Example">
+
+<details>
+<summary>View HTML</summary>
 
 ```html
 <!DOCTYPE html>
@@ -303,40 +339,99 @@ This is useful for templates that should always render at specific dimensions. R
   <meta name="dynimg:width" content="1200">
   <meta name="dynimg:height" content="630">
   <style>
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; }
     .container {
       width: 1200px;
       height: 630px;
       display: flex;
       flex-direction: column;
       justify-content: center;
-      align-items: center;
+      padding: 80px;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      font-family: system-ui, sans-serif;
     }
-    h1 {
-      color: white;
-      font-size: 64px;
-      margin: 0;
-    }
-    p {
-      color: rgba(255,255,255,0.8);
-      font-size: 32px;
-    }
+    h1 { color: white; font-size: 72px; font-weight: 700; line-height: 1.1; margin-bottom: 24px; }
+    p { color: rgba(255, 255, 255, 0.85); font-size: 32px; }
+    .footer { position: absolute; bottom: 40px; left: 80px; color: rgba(255, 255, 255, 0.6); font-size: 24px; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Hello World</h1>
-    <p>Welcome to my site</p>
+    <h1>Your Blog Post Title Here</h1>
+    <p>A compelling subtitle that captures attention</p>
+    <div class="footer">yoursite.com</div>
   </div>
 </body>
 </html>
 ```
+</details>
+
+### Social Card
+
+<img src="tests/snapshots/social-card.png" width="500" alt="Social Card Example">
+
+<details>
+<summary>View HTML</summary>
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="dynimg:width" content="1200">
+  <meta name="dynimg:height" content="675">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; }
+    .card {
+      width: 1200px;
+      height: 675px;
+      background: #0f172a;
+      display: flex;
+      padding: 60px;
+    }
+    .content { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .tag {
+      display: inline-block;
+      background: #3b82f6;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 24px;
+      width: fit-content;
+    }
+    h1 { color: white; font-size: 56px; font-weight: 700; line-height: 1.2; margin-bottom: 20px; }
+    p { color: #94a3b8; font-size: 24px; line-height: 1.5; }
+    .avatar {
+      width: 200px;
+      height: 200px;
+      background: linear-gradient(135deg, #06b6d4, #3b82f6);
+      border-radius: 100px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      align-self: center;
+      margin-left: 60px;
+    }
+    .avatar-text { color: white; font-size: 72px; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="content">
+      <span class="tag">Tutorial</span>
+      <h1>Getting Started with Rust</h1>
+      <p>Learn the fundamentals of Rust programming language with practical examples.</p>
+    </div>
+    <div class="avatar">
+      <span class="avatar-text">RS</span>
+    </div>
+  </div>
+</body>
+</html>
+```
+</details>
 
 ## Supported CSS Features
 

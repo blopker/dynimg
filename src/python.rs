@@ -76,12 +76,16 @@ pub struct RenderOptions {
     /// Base URL for resolving relative paths
     #[pyo3(get, set)]
     pub base_url: Option<String>,
+
+    /// Background color as CSS hex string (e.g. "#ffffff"). Default: transparent.
+    #[pyo3(get, set)]
+    pub background: Option<String>,
 }
 
 #[pymethods]
 impl RenderOptions {
     #[new]
-    #[pyo3(signature = (width=1200, height=None, scale=2.0, allow_net=false, assets_dir=None, base_url=None))]
+    #[pyo3(signature = (width=1200, height=None, scale=2.0, allow_net=false, assets_dir=None, base_url=None, background=None))]
     fn new(
         width: u32,
         height: Option<u32>,
@@ -89,6 +93,7 @@ impl RenderOptions {
         allow_net: bool,
         assets_dir: Option<String>,
         base_url: Option<String>,
+        background: Option<String>,
     ) -> Self {
         Self {
             width,
@@ -97,13 +102,14 @@ impl RenderOptions {
             allow_net,
             assets_dir,
             base_url,
+            background,
         }
     }
 
     fn __repr__(&self) -> String {
         format!(
-            "RenderOptions(width={}, height={:?}, scale={}, allow_net={}, assets_dir={:?})",
-            self.width, self.height, self.scale, self.allow_net, self.assets_dir
+            "RenderOptions(width={}, height={:?}, scale={}, allow_net={}, assets_dir={:?}, background={:?})",
+            self.width, self.height, self.scale, self.allow_net, self.assets_dir, self.background
         )
     }
 }
@@ -117,6 +123,7 @@ impl From<RenderOptions> for RustRenderOptions {
             allow_net: opts.allow_net,
             assets_dir: opts.assets_dir.map(PathBuf::from),
             base_url: opts.base_url,
+            background: opts.background,
         }
     }
 }
@@ -220,7 +227,7 @@ impl Image {
 #[pyo3(signature = (html, options=None))]
 fn render(py: Python<'_>, html: &str, options: Option<RenderOptions>) -> PyResult<Image> {
     let opts: RustRenderOptions = options
-        .unwrap_or_else(|| RenderOptions::new(1200, None, 2.0, false, None, None))
+        .unwrap_or_else(|| RenderOptions::new(1200, None, 2.0, false, None, None, None))
         .into();
 
     // Run the async render function (release GIL during blocking operation)
@@ -262,7 +269,7 @@ fn render_to_file(
     quality: u8,
 ) -> PyResult<()> {
     let opts: RustRenderOptions = options
-        .unwrap_or_else(|| RenderOptions::new(1200, None, 2.0, false, None, None))
+        .unwrap_or_else(|| RenderOptions::new(1200, None, 2.0, false, None, None, None))
         .into();
 
     py.detach(|| {

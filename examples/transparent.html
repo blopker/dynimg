@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="dynimg:width" content="400">
+    <meta name="dynimg:height" content="300">
+    <meta name="dynimg:scale" content="1">
+    <style>
+        body {
+            margin: 0;
+            padding: 40px;
+            font-family: system-ui, sans-serif;
+            /* No background set - should be transparent */
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+        h1 {
+            margin: 0 0 12px 0;
+            color: #1a1a2e;
+            font-size: 24px;
+        }
+        p {
+            margin: 0;
+            color: #4a4a68;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Transparent Background Test</h1>
+        <p>The area outside this card should be transparent in PNG/WebP output.</p>
+    </div>
+</body>
+</html>

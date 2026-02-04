@@ -86,6 +86,10 @@ pub struct RenderOptions {
 
     /// Base URL for resolving relative paths. If None, uses assets_dir or current directory.
     pub base_url: Option<String>,
+
+    /// Background color as a CSS hex string, e.g. "#ffffff" (default: transparent).
+    /// Automatically set to white for JPEG output via CLI and `render_to_file()`.
+    pub background: Option<String>,
 }
 
 impl Default for RenderOptions {
@@ -97,6 +101,7 @@ impl Default for RenderOptions {
             allow_net: false,
             assets_dir: None,
             base_url: None,
+            background: None,
         }
     }
 }
@@ -144,6 +149,12 @@ impl RenderOptions {
     /// Set the base URL for resolving relative paths
     pub fn base_url(mut self, url: impl Into<String>) -> Self {
         self.base_url = Some(url.into());
+        self
+    }
+
+    /// Set the background color as a CSS hex string, e.g. "#ffffff" (default: transparent)
+    pub fn background(mut self, color: impl Into<String>) -> Self {
+        self.background = Some(color.into());
         self
     }
 }
@@ -255,7 +266,12 @@ pub async fn render(html: &str, options: RenderOptions) -> Result<RenderedImage,
     ));
 
     // Render the document
-    render_document(&mut document, &provider, width, height, scale).await
+    let background = options
+        .background
+        .as_deref()
+        .map(parse_hex_color)
+        .unwrap_or(Color::TRANSPARENT);
+    render_document(&mut document, &provider, width, height, scale, background).await
 }
 
 /// Render HTML and save directly to a file.
@@ -280,12 +296,24 @@ pub async fn render_to_file(
     quality: u8,
 ) -> Result<(), Error> {
     let path = path.as_ref();
-    let image = render(html, options).await?;
 
     let ext = path
         .extension()
         .and_then(|e| e.to_str())
         .map(|e| e.to_lowercase());
+
+    // Use white background for JPEG (no transparency support)
+    let options =
+        if matches!(ext.as_deref(), Some("jpg") | Some("jpeg")) && options.background.is_none() {
+            RenderOptions {
+                background: Some("#ffffff".to_string()),
+                ..options
+            }
+        } else {
+            options
+        };
+
+    let image = render(html, options).await?;
 
     match ext.as_deref() {
         Some("png") => image.save_png(path),
@@ -298,6 +326,33 @@ pub async fn render_to_file(
 // ============================================================================
 // Internal implementation
 // ============================================================================
+
+/// Parse a CSS hex color string (e.g. "#ffffff" or "#fff") to a Color.
+/// Falls back to transparent if parsing fails.
+fn parse_hex_color(s: &str) -> Color {
+    let s = s.trim().trim_start_matches('#');
+
+    let (r, g, b) = match s.len() {
+        // #rgb format
+        3 => {
+            let r = u8::from_str_radix(&s[0..1], 16).unwrap_or(0);
+            let g = u8::from_str_radix(&s[1..2], 16).unwrap_or(0);
+            let b = u8::from_str_radix(&s[2..3], 16).unwrap_or(0);
+            (r * 17, g * 17, b * 17) // Expand #rgb to #rrggbb
+        }
+        // #rrggbb format
+        6 => {
+            let r = u8::from_str_radix(&s[0..2], 16).unwrap_or(0);
+            let g = u8::from_str_radix(&s[2..4], 16).unwrap_or(0);
+            let b = u8::from_str_radix(&s[4..6], 16).unwrap_or(0);
+            (r, g, b)
+        }
+        _ => return Color::TRANSPARENT,
+    };
+
+    // Color components are f32 in 0.0-1.0 range
+    Color::new([r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, 1.0])
+}
 
 /// Options extracted from HTML meta tags
 #[derive(Debug, Default)]
@@ -450,6 +505,7 @@ async fn render_document(
     width: u32,
     height: Option<u32>,
     scale: f32,
+    background: Color,
 ) -> Result<RenderedImage, Error> {
     // Resolve resource requests
     if let Some(p) = provider {
@@ -488,7 +544,7 @@ async fn render_document(
             scene.fill(
                 Fill::NonZero,
                 Default::default(),
-                Color::TRANSPARENT,
+                background,
                 Default::default(),
                 &Rect::new(0.0, 0.0, render_width as f64, render_height_scaled as f64),
             );
@@ -566,7 +622,7 @@ fn encode_jpeg(buffer: &[u8], width: u32, height: u32, quality: u8) -> Result<Ve
     let pixel_count = (width * height) as usize;
     let mut rgb_buffer = Vec::with_capacity(pixel_count * 3);
 
-    // Convert RGBA to RGB
+    // Convert RGBA to RGB (drop alpha channel)
     for chunk in buffer.chunks_exact(4) {
         rgb_buffer.extend_from_slice(&chunk[..3]);
     }

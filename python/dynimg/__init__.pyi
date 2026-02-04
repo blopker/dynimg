@@ -11,6 +11,7 @@ class RenderOptions:
     allow_net: bool
     assets_dir: Optional[str]
     base_url: Optional[str]
+    background: Optional[str]
 
     def __init__(
         self,
@@ -20,7 +21,19 @@ class RenderOptions:
         allow_net: bool = False,
         assets_dir: Optional[str] = None,
         base_url: Optional[str] = None,
-    ) -> None: ...
+        background: Optional[str] = None,
+    ) -> None:
+        """
+        Args:
+            width: Viewport width in CSS pixels (default: 1200)
+            height: Viewport height in CSS pixels (default: auto-sizes to content)
+            scale: Scale factor for output resolution (default: 2.0 for retina)
+            allow_net: Allow network requests for remote resources
+            assets_dir: Directory for loading local assets
+            base_url: Base URL for resolving relative paths
+            background: Background color as CSS hex string, e.g. "#ffffff" (default: transparent)
+        """
+        ...
 
 class Image:
     """A rendered image with RGBA pixel data"""
