@@ -4,6 +4,9 @@
 import sys
 import time
 from contextlib import contextmanager
+from pathlib import Path
+
+OUTPUT_DIR = Path(__file__).parent / "output"
 
 
 class RunTimer:
@@ -43,13 +46,13 @@ def test_render_basic():
     assert img.height == 100, f"Expected height 100, got {img.height}"
 
     with timer.measure("Save PNG"):
-        img.save_png("test_basic.png")
+        img.save_png(str(OUTPUT_DIR / "test_basic.png"))
 
     with timer.measure("Save JPEG"):
-        img.save_jpeg("test_basic.jpg")
+        img.save_jpeg(str(OUTPUT_DIR / "test_basic.jpg"))
 
     with timer.measure("Save WebP"):
-        img.save_webp("test_basic.webp")
+        img.save_webp(str(OUTPUT_DIR / "test_basic.webp"))
 
     print(f"Basic render: {img.width}x{img.height}")
     return True
@@ -79,13 +82,13 @@ def test_render_gradient():
     assert img.width == 2400, f"Expected width 2400, got {img.width}"
     assert img.height == 1260, f"Expected height 1260, got {img.height}"
     with timer.measure("Save WebP"):
-        img.save_webp("test_gradient.webp")
+        img.save_webp(str(OUTPUT_DIR / "test_gradient.webp"))
 
     with timer.measure("Save PNG"):
-        img.save_png("test_gradient.png")
+        img.save_png(str(OUTPUT_DIR / "test_gradient.png"))
 
     with timer.measure("Save JPEG"):
-        img.save_jpeg("test_gradient.jpg")
+        img.save_jpeg(str(OUTPUT_DIR / "test_gradient.jpg"))
 
     print(f"Gradient render: {img.width}x{img.height}")
     return True
@@ -93,8 +96,6 @@ def test_render_gradient():
 
 def test_save_formats():
     """Test saving to different formats."""
-    import os
-
     import dynimg
 
     timer = RunTimer()
@@ -103,24 +104,27 @@ def test_save_formats():
         img = dynimg.render(html, dynimg.RenderOptions(width=50, height=50, scale=1.0))
 
     # Test PNG
+    png_path = OUTPUT_DIR / "test_output.png"
     with timer.measure("Save PNG"):
-        img.save_png("test_output.png")
-    assert os.path.exists("test_output.png"), "PNG file not created"
-    png_size = os.path.getsize("test_output.png")
+        img.save_png(str(png_path))
+    assert png_path.exists(), "PNG file not created"
+    png_size = png_path.stat().st_size
     print(f"PNG saved: {png_size} bytes")
 
     # Test WebP
+    webp_path = OUTPUT_DIR / "test_output.webp"
     with timer.measure("Save WebP"):
-        img.save_webp("test_output.webp")
-    assert os.path.exists("test_output.webp"), "WebP file not created"
-    webp_size = os.path.getsize("test_output.webp")
+        img.save_webp(str(webp_path))
+    assert webp_path.exists(), "WebP file not created"
+    webp_size = webp_path.stat().st_size
     print(f"WebP saved: {webp_size} bytes")
 
     # Test JPEG
+    jpeg_path = OUTPUT_DIR / "test_output.jpg"
     with timer.measure("Save JPEG"):
-        img.save_jpeg("test_output.jpg", quality=90)
-    assert os.path.exists("test_output.jpg"), "JPEG file not created"
-    jpeg_size = os.path.getsize("test_output.jpg")
+        img.save_jpeg(str(jpeg_path), quality=90)
+    assert jpeg_path.exists(), "JPEG file not created"
+    jpeg_size = jpeg_path.stat().st_size
     print(f"JPEG saved: {jpeg_size} bytes")
 
     return True
@@ -158,8 +162,6 @@ def test_to_bytes():
 
 def test_render_to_file():
     """Test render_to_file convenience function."""
-    import os
-
     import dynimg
 
     timer = RunTimer()
@@ -167,28 +169,32 @@ def test_render_to_file():
         '<html><body style="background:yellow; width:50px; height:50px;"></body></html>'
     )
 
+    png_path = OUTPUT_DIR / "test_direct.png"
     with timer.measure("render_to_file PNG"):
-        dynimg.render_to_file(html, "test_direct.png")
-    assert os.path.exists("test_direct.png"), "Direct PNG not created"
-    print(f"render_to_file PNG: {os.path.getsize('test_direct.png')} bytes")
-    os.remove("test_direct.png")
+        dynimg.render_to_file(html, str(png_path))
+    assert png_path.exists(), "Direct PNG not created"
+    print(f"render_to_file PNG: {png_path.stat().st_size} bytes")
+    png_path.unlink()
 
+    webp_path = OUTPUT_DIR / "test_direct.webp"
     with timer.measure("render_to_file WebP"):
         dynimg.render_to_file(
             html,
-            "test_direct.webp",
+            str(webp_path),
             options=dynimg.RenderOptions(width=100, height=100, scale=1.0),
             quality=85,
         )
-    assert os.path.exists("test_direct.webp"), "Direct WebP not created"
-    print(f"render_to_file WebP: {os.path.getsize('test_direct.webp')} bytes")
-    os.remove("test_direct.webp")
+    assert webp_path.exists(), "Direct WebP not created"
+    print(f"render_to_file WebP: {webp_path.stat().st_size} bytes")
+    webp_path.unlink()
 
     return True
 
 
 def main():
     """Run all tests."""
+    OUTPUT_DIR.mkdir(exist_ok=True)
+
     tests = [
         ("Import", test_import),
         ("Basic Render", test_render_basic),

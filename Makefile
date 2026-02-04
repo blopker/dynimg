@@ -11,7 +11,7 @@ dev:
 # Run tests
 test: install
 	cargo test
-	python test_wheels/test_dynimg.py
+	.venv/bin/python test_wheels/test_dynimg.py
 	./scripts/snapshot-tests.sh
 
 # Run lints

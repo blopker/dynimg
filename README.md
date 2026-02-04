@@ -386,20 +386,23 @@ cargo fmt -- --check
 
 ## Releasing
 
-Releases are automated via GitHub Actions. To create a new release:
-
-1. Update the version in `Cargo.toml`
-2. Create and push a git tag:
+Releases are automated via a release script and GitHub Actions. To create a new release:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+./scripts/release.sh
 ```
 
-This triggers the release workflow which:
+The script will:
+1. Verify you're on the main branch with a clean working directory
+2. Check that you're up to date with the remote
+3. Bump the patch version in `Cargo.toml` and `pyproject.toml`
+4. Commit the version changes and create an annotated tag
+5. Push the commit and tag to origin
+
+This triggers the GitHub Actions release workflow which:
 - Builds wheels for Linux (x86_64, aarch64) and macOS (x86_64, aarch64)
 - Creates a GitHub Release with all artifacts
-- (Optional) Publishes to PyPI (when enabled)
+- Publishes to PyPI
 
 ## License
 
