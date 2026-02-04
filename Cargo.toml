@@ -47,7 +47,7 @@ clap = { version = "4", features = ["derive"] }
 
 # Image encoding
 png = "0.18"
-image = { version = "0.25", default-features = false, features = ["jpeg"] }
+zenjpeg = "0.4"
 webp = "0.3"
 
 # Async runtime (needed for blitz-net)

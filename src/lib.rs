@@ -58,8 +58,8 @@ pub enum Error {
     #[error("PNG encoding error: {0}")]
     PngEncoding(#[from] png::EncodingError),
 
-    #[error("Image encoding error: {0}")]
-    ImageEncoding(#[from] image::ImageError),
+    #[error("JPEG encoding error: {0}")]
+    JpegEncoding(#[from] zenjpeg::encoder::Error),
 
     #[error("Invalid image buffer")]
     InvalidBuffer,
@@ -488,7 +488,7 @@ async fn render_document(
             scene.fill(
                 Fill::NonZero,
                 Default::default(),
-                Color::WHITE,
+                Color::TRANSPARENT,
                 Default::default(),
                 &Rect::new(0.0, 0.0, render_width as f64, render_height_scaled as f64),
             );
@@ -560,23 +560,24 @@ fn write_jpeg(
 }
 
 fn encode_jpeg(buffer: &[u8], width: u32, height: u32, quality: u8) -> Result<Vec<u8>, Error> {
+    use zenjpeg::encoder::{ChromaSubsampling, EncoderConfig, PixelLayout, Unstoppable};
+
     // Pre-allocate RGB buffer (3 bytes per pixel instead of 4)
     let pixel_count = (width * height) as usize;
     let mut rgb_buffer = Vec::with_capacity(pixel_count * 3);
 
-    // Convert RGBA to RGB in-place
+    // Convert RGBA to RGB
     for chunk in buffer.chunks_exact(4) {
         rgb_buffer.extend_from_slice(&chunk[..3]);
     }
 
-    let img = image::RgbImage::from_raw(width, height, rgb_buffer).ok_or(Error::InvalidBuffer)?;
+    // Use zenjpeg for encoding - quality is 0-100, use 4:2:0 chroma subsampling for good compression
+    let config = EncoderConfig::ycbcr(quality, ChromaSubsampling::Quarter);
+    let mut encoder = config.encode_from_bytes(width, height, PixelLayout::Rgb8Srgb)?;
+    encoder.push_packed(&rgb_buffer, Unstoppable)?;
+    let jpeg = encoder.finish()?;
 
-    // Pre-allocate output (estimate ~10% of raw size for compressed JPEG)
-    let mut output = Vec::with_capacity(pixel_count / 10);
-    let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut output, quality);
-    encoder.encode_image(&img)?;
-
-    Ok(output)
+    Ok(jpeg)
 }
 
 fn write_webp_lossless(path: &Path, buffer: &[u8], width: u32, height: u32) -> Result<(), Error> {
