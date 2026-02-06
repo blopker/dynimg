@@ -193,10 +193,7 @@ async fn main() -> Result<()> {
         io::stdout()
             .write_all(&bytes)
             .context("Failed to write to stdout")?;
-        eprintln!(
-            "Wrote {}x{} image to stdout",
-            image.width, image.height
-        );
+        eprintln!("Wrote {}x{} image to stdout", image.width, image.height);
     } else {
         let output = output_path.as_ref().unwrap();
         match format {
