@@ -1,0 +1,55 @@
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Document</title>
+    </head>
+    <body>
+        <div
+            id="container"
+            style="
+                width: 500px;
+                height: 300px;
+                overflow: hidden;
+                border: 1px solid black;
+            "
+        >
+            <div
+                id="text-node"
+                style="display: inline-block; white-space: nowrap"
+            >
+                OPTIMIZED FIT
+            </div>
+        </div>
+
+        <script>
+            function maximizeFontSize(element, parent) {
+                let min = 10;
+                let max = 500;
+                let result = min;
+
+                while (min <= max) {
+                    let mid = Math.floor((min + max) / 2);
+                    element.style.fontSize = mid + "px";
+
+                    // Check for overflow
+                    if (
+                        element.offsetWidth <= parent.offsetWidth &&
+                        element.offsetHeight <= parent.offsetHeight
+                    ) {
+                        result = mid;
+                        min = mid + 1;
+                    } else {
+                        max = mid - 1;
+                    }
+                }
+                element.style.fontSize = result + "px";
+            }
+
+            const container = document.getElementById("container");
+            const text = document.getElementById("text-node");
+            maximizeFontSize(text, container);
+            window.document.body.style.backgroundColor = "lightblue";
+        </script>
+    </body>
+</html>

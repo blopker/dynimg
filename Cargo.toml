@@ -28,11 +28,11 @@ libc = { version = "0.2", optional = true }
 
 
 # Blitz rendering engine (from git - matches example.rs)
-blitz-dom = { git = "https://github.com/DioxusLabs/blitz.git", rev = "5889435", features = ["tracing"] }
-blitz-html = { git = "https://github.com/DioxusLabs/blitz.git", rev = "5889435" }
-blitz-net = { git = "https://github.com/DioxusLabs/blitz.git", rev = "5889435", features = ["cache"] }
-blitz-paint = { git = "https://github.com/DioxusLabs/blitz.git", rev = "5889435" }
-blitz-traits = { git = "https://github.com/DioxusLabs/blitz.git", rev = "5889435" }
+blitz-dom = { git = "https://github.com/DioxusLabs/blitz.git", rev = "b88144e", features = ["tracing"] }
+ blitz-html = { git = "https://github.com/DioxusLabs/blitz.git", rev = "b88144e" }
+blitz-net = { git = "https://github.com/DioxusLabs/blitz.git", rev = "b88144e", features = ["cache"] }
+blitz-paint = { git = "https://github.com/DioxusLabs/blitz.git", rev = "b88144e" }
+blitz-traits = { git = "https://github.com/DioxusLabs/blitz.git", rev = "b88144e" }
 
 # Anyrender - use the same version blitz uses (from crates.io)
 anyrender = "0.7"
@@ -47,7 +47,7 @@ clap = { version = "4", features = ["derive"] }
 
 # Image encoding
 png = "0.18"
-zenjpeg = "0.4"
+zenjpeg = "0.5"
 webp = "0.3"
 
 # Async runtime (needed for blitz-net)
@@ -62,6 +62,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # For NetProvider implementation
 bytes = "1"
+gag = "1.0.0"
 
 [profile.release]
 lto = "thin"

@@ -35,7 +35,8 @@
       "Bash(./scripts/snapshot-tests.sh:*)",
       "Bash(bash -x scripts/snapshot-tests.sh:*)",
       "Bash(head:*)",
-      "Bash(identify:*)"
+      "Bash(identify:*)",
+      "Bash(./target/debug/dynimg:*)"
     ]
   }
 }

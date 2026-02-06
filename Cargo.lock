@@ -4,9 +4,9 @@ version = 4
 
 [[package]]
 name = "accesskit"
-version = "0.23.0"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0467c58e646d849edd7fe043d6711b8ad58f27a39a5f33886f1f2ca9852e8259"
+checksum = "5351dcebb14b579ccab05f288596b2ae097005be7ee50a7c3d4ca9d0d5a66f6a"
 dependencies = [
  "uuid",
 ]
@@ -108,9 +108,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.100"
+version = "1.0.101"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
+checksum = "5f0e0fee31ef5ed1ba1316088939cea399010ed7731dba877ed44aeb407a75ea"
 
 [[package]]
 name = "anyrender"
@@ -261,7 +261,7 @@ dependencies = [
 [[package]]
 name = "blitz-dom"
 version = "0.2.2"
-source = "git+https://github.com/DioxusLabs/blitz.git?rev=5889435#58894358f0e67703d9baf4b17134466905ea4d9c"
+source = "git+https://github.com/DioxusLabs/blitz.git?rev=b88144e#b88144edab3f44b6dd769245ed616733092466df"
 dependencies = [
  "accesskit",
  "app_units",
@@ -271,7 +271,7 @@ dependencies = [
  "color",
  "cssparser",
  "cursor-icon",
- "debug_timer 0.1.3 (git+https://github.com/DioxusLabs/blitz.git?rev=5889435)",
+ "debug_timer 0.1.3 (git+https://github.com/DioxusLabs/blitz.git?rev=b88144e)",
  "euclid",
  "fastrand",
  "html-escape",
@@ -303,7 +303,7 @@ dependencies = [
 [[package]]
 name = "blitz-html"
 version = "0.2.0"
-source = "git+https://github.com/DioxusLabs/blitz.git?rev=5889435#58894358f0e67703d9baf4b17134466905ea4d9c"
+source = "git+https://github.com/DioxusLabs/blitz.git?rev=b88144e#b88144edab3f44b6dd769245ed616733092466df"
 dependencies = [
  "blitz-dom",
  "blitz-traits",
@@ -314,7 +314,7 @@ dependencies = [
 [[package]]
 name = "blitz-net"
 version = "0.2.1"
-source = "git+https://github.com/DioxusLabs/blitz.git?rev=5889435#58894358f0e67703d9baf4b17134466905ea4d9c"
+source = "git+https://github.com/DioxusLabs/blitz.git?rev=b88144e#b88144edab3f44b6dd769245ed616733092466df"
 dependencies = [
  "blitz-traits",
  "data-url",
@@ -328,7 +328,7 @@ dependencies = [
 [[package]]
 name = "blitz-paint"
 version = "0.2.1"
-source = "git+https://github.com/DioxusLabs/blitz.git?rev=5889435#58894358f0e67703d9baf4b17134466905ea4d9c"
+source = "git+https://github.com/DioxusLabs/blitz.git?rev=b88144e#b88144edab3f44b6dd769245ed616733092466df"
 dependencies = [
  "anyrender",
  "anyrender_svg",
@@ -347,7 +347,7 @@ dependencies = [
 [[package]]
 name = "blitz-traits"
 version = "0.2.0"
-source = "git+https://github.com/DioxusLabs/blitz.git?rev=5889435#58894358f0e67703d9baf4b17134466905ea4d9c"
+source = "git+https://github.com/DioxusLabs/blitz.git?rev=b88144e#b88144edab3f44b6dd769245ed616733092466df"
 dependencies = [
  "bitflags 2.10.0",
  "bytes",
@@ -684,7 +684,7 @@ checksum = "da220af51a1a335e9a930beaaef53d261e41ea9eecfb3d973a3ddae1a7284b9c"
 [[package]]
 name = "debug_timer"
 version = "0.1.3"
-source = "git+https://github.com/DioxusLabs/blitz.git?rev=5889435#58894358f0e67703d9baf4b17134466905ea4d9c"
+source = "git+https://github.com/DioxusLabs/blitz.git?rev=b88144e#b88144edab3f44b6dd769245ed616733092466df"
 
 [[package]]
 name = "deranged"
@@ -796,6 +796,7 @@ dependencies = [
  "blitz-traits",
  "bytes",
  "clap",
+ "gag",
  "kurbo",
  "libc",
  "peniko",
@@ -897,6 +898,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fb2907d1f08b2b316b9223ced5b0e89d87028ba8deae9764741dba8ff7f3903"
 dependencies = [
  "bytemuck",
+]
+
+[[package]]
+name = "filedescriptor"
+version = "0.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e40758ed24c9b2eeb76c35fb0aebc66c626084edd827e07e1552279814c6682d"
+dependencies = [
+ "libc",
+ "thiserror 1.0.69",
+ "winapi",
 ]
 
 [[package]]
@@ -1098,6 +1110,16 @@ dependencies = [
  "pin-project-lite",
  "pin-utils",
  "slab",
+]
+
+[[package]]
+name = "gag"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a713bee13966e9fbffdf7193af71d54a6b35a0bb34997cd6c9519ebeb5005972"
+dependencies = [
+ "filedescriptor",
+ "tempfile",
 ]
 
 [[package]]
@@ -3143,7 +3165,7 @@ checksum = "fd15301b4756455af51fda9835655e48812dd4175e80947fd5d6a4b57ee30e89"
 [[package]]
 name = "stylo_taffy"
 version = "0.2.0"
-source = "git+https://github.com/DioxusLabs/blitz.git?rev=5889435#58894358f0e67703d9baf4b17134466905ea4d9c"
+source = "git+https://github.com/DioxusLabs/blitz.git?rev=b88144e#b88144edab3f44b6dd769245ed616733092466df"
 dependencies = [
  "stylo",
  "stylo_atoms",
@@ -3333,9 +3355,9 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.46"
+version = "0.3.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9da98b7d9b7dad93488a84b8248efc35352b0b2657397d4167e7ad67e5d535e5"
+checksum = "743bd48c283afc0388f9b8827b976905fb217ad9e647fae3a379a9283c4def2c"
 dependencies = [
  "deranged",
  "itoa",
@@ -3354,9 +3376,9 @@ checksum = "7694e1cfe791f8d31026952abf09c69ca6f6fa4e1a1229e18988f06a04a12dca"
 
 [[package]]
 name = "time-macros"
-version = "0.2.26"
+version = "0.2.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78cc610bac2dcee56805c99642447d4c5dbde4d01f752ffea0199aee1f601dc4"
+checksum = "2e70e4c5a0e0a8a4823ad65dfe1a6930e4f4d756dcd9dd7939022b5e8c501215"
 dependencies = [
  "num-conv",
  "time-core",
@@ -3950,6 +3972,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "winapi"
+version = "0.3.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c839a674fcd7a98952e593242ea400abe93992746761e38641405d28b00f419"
+dependencies = [
+ "winapi-i686-pc-windows-gnu",
+ "winapi-x86_64-pc-windows-gnu",
+]
+
+[[package]]
+name = "winapi-i686-pc-windows-gnu"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac3b87c63620426dd9b991e5ce0329eff545bccbbb34f3be09ff6fb6ab51b7b6"
+
+[[package]]
 name = "winapi-util"
 version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3957,6 +3995,12 @@ checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
  "windows-sys 0.61.2",
 ]
+
+[[package]]
+name = "winapi-x86_64-pc-windows-gnu"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "windows"
@@ -4386,9 +4430,9 @@ dependencies = [
 
 [[package]]
 name = "zenjpeg"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7bbccbe8dcf2cc21579981070905b6120ec82a45aa92b1715d28e05941390c50"
+checksum = "a48b21f380b04f6465445fe716fb0dc8326d67d52c724bd77a455511fabcdbde"
 dependencies = [
  "aligned-vec",
  "archmage",
@@ -4416,18 +4460,18 @@ checksum = "6df3dc4292935e51816d896edcd52aa30bc297907c26167fec31e2b0c6a32524"
 
 [[package]]
 name = "zerocopy"
-version = "0.8.38"
+version = "0.8.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57cf3aa6855b23711ee9852dfc97dfaa51c45feaba5b645d0c777414d494a961"
+checksum = "db6d35d663eadb6c932438e763b262fe1a70987f9ae936e60158176d710cae4a"
 dependencies = [
  "zerocopy-derive",
 ]
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.8.38"
+version = "0.8.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a616990af1a287837c4fe6596ad77ef57948f787e46ce28e166facc0cc1cb75"
+checksum = "4122cd3169e94605190e77839c9a40d40ed048d305bfdc146e7df40ab0f3e517"
 dependencies = [
  "proc-macro2",
  "quote",

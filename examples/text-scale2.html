@@ -1,0 +1,35 @@
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Document</title>
+    </head>
+    <body>
+        <style>
+            .box {
+                width: 500px;
+                height: 200px;
+                border: 2px solid #333;
+                container-type: inline-size;
+            }
+
+            .clamp-text {
+                /* (Minimum, Preferred, Maximum) */
+                font-size: clamp(2rem, 8cqw, 4rem);
+                line-height: 1.1;
+            }
+        </style>
+
+        <div class="box">
+            <div class="clamp-text">
+                Dynamic constraints ensure this text stays within functional
+                bounds. Dynamic constraints ensure this text stays within
+                functional bounds.Dynamic constraints ensure this text stays
+                within functional bounds.Dynamic constraints ensure this text
+                stays within functional bounds.Dynamic constraints ensure this
+                text stays within functional bounds.Dynamic constraints ensure
+                this text stays within functional bounds.
+            </div>
+        </div>
+    </body>
+</html>
