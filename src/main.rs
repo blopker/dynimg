@@ -148,6 +148,7 @@ async fn main() -> Result<()> {
         assets_dir: args.assets.clone(),
         base_url: None,
         background,
+        verbose: args.verbose,
     };
 
     // Set base URL from input file directory if not using assets

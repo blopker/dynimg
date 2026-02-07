@@ -798,7 +798,6 @@ dependencies = [
  "clap",
  "gag",
  "kurbo",
- "libc",
  "peniko",
  "png 0.18.0",
  "pyo3",

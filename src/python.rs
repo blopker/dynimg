@@ -5,50 +5,6 @@ use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use std::path::PathBuf;
 
-/// RAII guard to temporarily suppress stdout (blitz prints parse warnings to stdout)
-struct SuppressStdout {
-    saved_fd: libc::c_int,
-}
-
-impl SuppressStdout {
-    fn new() -> Option<Self> {
-        unsafe {
-            // Save current stdout
-            let saved_fd = libc::dup(libc::STDOUT_FILENO);
-            if saved_fd < 0 {
-                return None;
-            }
-
-            // Open /dev/null
-            let null_fd = libc::open(c"/dev/null".as_ptr(), libc::O_WRONLY);
-            if null_fd < 0 {
-                libc::close(saved_fd);
-                return None;
-            }
-
-            // Redirect stdout to /dev/null
-            if libc::dup2(null_fd, libc::STDOUT_FILENO) < 0 {
-                libc::close(null_fd);
-                libc::close(saved_fd);
-                return None;
-            }
-
-            libc::close(null_fd);
-            Some(Self { saved_fd })
-        }
-    }
-}
-
-impl Drop for SuppressStdout {
-    fn drop(&mut self) {
-        unsafe {
-            // Restore original stdout
-            libc::dup2(self.saved_fd, libc::STDOUT_FILENO);
-            libc::close(self.saved_fd);
-        }
-    }
-}
-
 /// Options for rendering HTML to an image
 #[pyclass(from_py_object)]
 #[derive(Clone)]
@@ -80,12 +36,16 @@ pub struct RenderOptions {
     /// Background color as CSS hex string (e.g. "#ffffff"). Default: transparent.
     #[pyo3(get, set)]
     pub background: Option<String>,
+
+    /// Enable verbose output. When false (default), dependency output is suppressed.
+    #[pyo3(get, set)]
+    pub verbose: bool,
 }
 
 #[pymethods]
 impl RenderOptions {
     #[new]
-    #[pyo3(signature = (width=1200, height=None, scale=2.0, allow_net=false, assets_dir=None, base_url=None, background=None))]
+    #[pyo3(signature = (width=1200, height=None, scale=2.0, allow_net=false, assets_dir=None, base_url=None, background=None, verbose=false))]
     fn new(
         width: u32,
         height: Option<u32>,
@@ -94,6 +54,7 @@ impl RenderOptions {
         assets_dir: Option<String>,
         base_url: Option<String>,
         background: Option<String>,
+        verbose: bool,
     ) -> Self {
         Self {
             width,
@@ -103,13 +64,14 @@ impl RenderOptions {
             assets_dir,
             base_url,
             background,
+            verbose,
         }
     }
 
     fn __repr__(&self) -> String {
         format!(
-            "RenderOptions(width={}, height={:?}, scale={}, allow_net={}, assets_dir={:?}, background={:?})",
-            self.width, self.height, self.scale, self.allow_net, self.assets_dir, self.background
+            "RenderOptions(width={}, height={:?}, scale={}, allow_net={}, assets_dir={:?}, background={:?}, verbose={})",
+            self.width, self.height, self.scale, self.allow_net, self.assets_dir, self.background, self.verbose
         )
     }
 }
@@ -124,6 +86,7 @@ impl From<RenderOptions> for RustRenderOptions {
             assets_dir: opts.assets_dir.map(PathBuf::from),
             base_url: opts.base_url,
             background: opts.background,
+            verbose: opts.verbose,
         }
     }
 }
@@ -227,7 +190,7 @@ impl Image {
 #[pyo3(signature = (html, options=None))]
 fn render(py: Python<'_>, html: &str, options: Option<RenderOptions>) -> PyResult<Image> {
     let opts: RustRenderOptions = options
-        .unwrap_or_else(|| RenderOptions::new(1200, None, 2.0, false, None, None, None))
+        .unwrap_or_else(|| RenderOptions::new(1200, None, 2.0, false, None, None, None, false))
         .into();
 
     // Run the async render function (release GIL during blocking operation)
@@ -235,8 +198,6 @@ fn render(py: Python<'_>, html: &str, options: Option<RenderOptions>) -> PyResul
         let rt = tokio::runtime::Runtime::new()
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
-        // Suppress stdout during rendering (blitz prints parse errors to stdout)
-        let _suppress = SuppressStdout::new();
         let result = rt.block_on(rust_render(html, opts));
 
         match result {
@@ -269,15 +230,13 @@ fn render_to_file(
     quality: u8,
 ) -> PyResult<()> {
     let opts: RustRenderOptions = options
-        .unwrap_or_else(|| RenderOptions::new(1200, None, 2.0, false, None, None, None))
+        .unwrap_or_else(|| RenderOptions::new(1200, None, 2.0, false, None, None, None, false))
         .into();
 
     py.detach(|| {
         let rt = tokio::runtime::Runtime::new()
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
-        // Suppress stdout during rendering (blitz prints parse errors to stdout)
-        let _suppress = SuppressStdout::new();
         let result = rt.block_on(crate::render_to_file(html, path, opts, quality));
 
         match result {

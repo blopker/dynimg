@@ -19,12 +19,11 @@ path = "src/main.rs"
 
 [features]
 default = []
-python = ["pyo3", "libc"]
+python = ["pyo3"]
 
 [dependencies]
 # Python bindings (optional)
 pyo3 = { version = "0.28", features = ["extension-module", "abi3-py311"], optional = true }
-libc = { version = "0.2", optional = true }
 
 
 # Blitz rendering engine (from git - matches example.rs)

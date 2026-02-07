@@ -12,6 +12,7 @@ class RenderOptions:
     assets_dir: Optional[str]
     base_url: Optional[str]
     background: Optional[str]
+    verbose: bool
 
     def __init__(
         self,
@@ -22,6 +23,7 @@ class RenderOptions:
         assets_dir: Optional[str] = None,
         base_url: Optional[str] = None,
         background: Optional[str] = None,
+        verbose: bool = False,
     ) -> None:
         """
         Args:
@@ -32,6 +34,7 @@ class RenderOptions:
             assets_dir: Directory for loading local assets
             base_url: Base URL for resolving relative paths
             background: Background color as CSS hex string, e.g. "#ffffff" (default: transparent)
+            verbose: Enable verbose output (default: False). When True, dependency output is forwarded to stderr.
         """
         ...
 

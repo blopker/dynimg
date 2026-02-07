@@ -90,7 +90,8 @@ let options = RenderOptions::default()
     .scale(2.0)
     .allow_net()
     .assets_dir("./assets")
-    .background("#ffffff");  // CSS hex color (default: transparent)
+    .background("#ffffff")  // CSS hex color (default: transparent)
+    .verbose();             // Show dependency output on stderr
 
 // Or struct initialization
 let options = RenderOptions {
@@ -101,6 +102,7 @@ let options = RenderOptions {
     assets_dir: Some("./assets".into()),
     base_url: None,
     background: Some("#ffffff".into()),  // None = transparent
+    verbose: false,                      // Suppress dependency output (default)
 };
 ```
 
@@ -226,7 +228,7 @@ Options:
   -q, --quality <1-100>     JPEG quality [default: 90]
       --allow-net           Allow network access for loading remote resources
       --assets <DIR>        Asset directory for local resources
-  -v, --verbose             Enable verbose logging
+  -v, --verbose             Enable verbose logging and show dependency output on stderr
       --help                Print help
       --version             Print version
 
@@ -284,6 +286,7 @@ options = dynimg.RenderOptions(
     assets_dir="./assets",  # Local assets directory (default: None)
     base_url="https://example.com",  # Base URL for relative URLs (default: None)
     background="#ffffff",  # CSS hex color (default: transparent)
+    verbose=False,       # Show dependency output on stderr (default: False)
 )
 
 image = dynimg.render(html, options)
