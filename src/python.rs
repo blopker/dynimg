@@ -71,7 +71,13 @@ impl RenderOptions {
     fn __repr__(&self) -> String {
         format!(
             "RenderOptions(width={}, height={:?}, scale={}, allow_net={}, assets_dir={:?}, background={:?}, verbose={})",
-            self.width, self.height, self.scale, self.allow_net, self.assets_dir, self.background, self.verbose
+            self.width,
+            self.height,
+            self.scale,
+            self.allow_net,
+            self.assets_dir,
+            self.background,
+            self.verbose
         )
     }
 }

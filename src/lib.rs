@@ -302,8 +302,7 @@ pub async fn render(html: &str, options: RenderOptions) -> Result<RenderedImage,
         .as_deref()
         .map(parse_hex_color)
         .unwrap_or(Color::TRANSPARENT);
-    let result =
-        render_document(&mut document, &provider, width, height, scale, background).await;
+    let result = render_document(&mut document, &provider, width, height, scale, background).await;
 
     // In verbose mode, forward captured output to stderr
     if verbose {
