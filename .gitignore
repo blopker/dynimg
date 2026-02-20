@@ -1,6 +1,6 @@
 /target
 /output
-
+/tests/output
 # Python
 .venv/
 __pycache__/

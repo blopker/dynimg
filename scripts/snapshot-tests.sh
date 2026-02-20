@@ -9,7 +9,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 SNAPSHOTS_DIR="$PROJECT_ROOT/tests/snapshots"
 EXAMPLES_DIR="$PROJECT_ROOT/examples"
-TMP_DIR=$(mktemp -d)
+OUTPUT_DIR="$PROJECT_ROOT/tests/output"
+mkdir -p "$OUTPUT_DIR"
 
 # Colors
 RED='\033[0;31m'
@@ -22,12 +23,6 @@ UPDATE_MODE=false
 if [ "$1" = "--update" ] || [ "$1" = "-u" ]; then
     UPDATE_MODE=true
 fi
-
-# Cleanup on exit
-cleanup() {
-    rm -rf "$TMP_DIR"
-}
-trap cleanup EXIT
 
 # Build release version
 echo "Building dynimg..."
@@ -55,7 +50,7 @@ snapshot_test() {
     shift 3
     local extra_args=("$@")
 
-    local output_file="$TMP_DIR/${name}.${ext}"
+    local output_file="$OUTPUT_DIR/${name}.${ext}"
     local snapshot_file="$SNAPSHOTS_DIR/${name}.${ext}"
 
     printf "  %-40s " "$name"
@@ -99,7 +94,7 @@ snapshot_test() {
         : $((PASSED++))
     else
         printf "${RED}MISMATCH${NC}         (%5.2fs)\n" "$elapsed"
-        echo "         Output:   $TMP_DIR/${name}.png"
+        echo "         Output:   $OUTPUT_DIR/${name}.png"
         echo "         Expected: $snapshot_file"
         : $((FAILED++))
     fi
