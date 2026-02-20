@@ -14,6 +14,9 @@ test: install
 	.venv/bin/python test_wheels/test_dynimg.py
 	./scripts/snapshot-tests.sh
 
+update_snapshot:
+	./scripts/snapshot-tests.sh --update
+
 # Run lints
 lint:
 	cargo clippy -- -D warnings
