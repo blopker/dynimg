@@ -113,6 +113,10 @@ snapshot_test "transparent-webp" webp "$EXAMPLES_DIR/transparent.html"
 snapshot_test "transparent-jpg" jpg "$EXAMPLES_DIR/transparent.html" --quality 90
 
 echo ""
+echo "--- Emoji ---"
+snapshot_test "emoji" png "$EXAMPLES_DIR/emoji.html"
+
+echo ""
 echo "--- OG Image Templates ---"
 snapshot_test "og-image" png "$EXAMPLES_DIR/og-image.html"
 snapshot_test "social-card" png "$EXAMPLES_DIR/social-card.html"

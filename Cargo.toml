@@ -36,6 +36,8 @@ blitz-traits = { git = "https://github.com/DioxusLabs/blitz.git", rev = "610fb0f
 # Anyrender - use the same version blitz uses (from crates.io)
 anyrender = "0.7"
 anyrender_vello_cpu = "0.9"
+# Enable png feature for color emoji (SBIX bitmap) support - anyrender_vello_cpu doesn't enable it
+vello_cpu = { version = "0.0.6", default-features = false, features = ["png"] }
 
 # Graphics primitives - use the same versions anyrender uses
 peniko = "0.6"
