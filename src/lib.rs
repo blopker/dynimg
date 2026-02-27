@@ -282,9 +282,8 @@ pub async fn render(html: &str, options: RenderOptions) -> Result<RenderedImage,
         .as_deref()
         .map(parse_hex_color)
         .unwrap_or(Color::TRANSPARENT);
-    let result = render_document(&mut document, &provider, width, height, scale, background).await;
 
-    result
+    render_document(&mut document, &provider, width, height, scale, background).await
 }
 
 /// Render HTML and save directly to a file.
