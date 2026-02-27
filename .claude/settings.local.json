@@ -37,7 +37,11 @@
       "Bash(head:*)",
       "Bash(identify:*)",
       "Bash(./target/debug/dynimg:*)",
-      "Bash(cargo check:*)"
+      "Bash(cargo check:*)",
+      "Bash(command make:*)",
+      "WebFetch(domain:packages.debian.org)",
+      "Bash(command diff:*)",
+      "Bash(gh issue:*)"
     ]
   }
 }

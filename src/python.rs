@@ -199,7 +199,8 @@ fn render(py: Python<'_>, html: &str, options: Option<RenderOptions>) -> PyResul
         .unwrap_or_else(|| RenderOptions::new(1200, None, 2.0, false, None, None, None, false))
         .into();
 
-    // Run the async render function (release GIL during blocking operation)
+    // Release GIL during rendering so other Python threads aren't blocked.
+    // Concurrent render safety is handled by the library-level RENDER_LOCK.
     py.detach(|| {
         let rt = tokio::runtime::Runtime::new()
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
