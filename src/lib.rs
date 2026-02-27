@@ -45,7 +45,6 @@ use bytes::Bytes;
 use kurbo::Rect;
 use peniko::Fill;
 use std::fs;
-use std::io::Read as _;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use thiserror::Error;
@@ -232,25 +231,6 @@ impl RenderedImage {
 /// # }
 /// ```
 pub async fn render(html: &str, options: RenderOptions) -> Result<RenderedImage, Error> {
-    let verbose = options.verbose;
-
-    // Suppress or capture stdout/stderr from dependencies (e.g. fontconfig warnings, CSS parser output)
-    let (mut stdout_redir, mut stderr_redir) = if verbose {
-        // Capture to buffers so we can forward to stderr after rendering
-        (
-            gag::BufferRedirect::stdout().ok(),
-            gag::BufferRedirect::stderr().ok(),
-        )
-    } else {
-        (None, None)
-    };
-    // When not verbose and not capturing, just discard to /dev/null
-    let (_stdout_gag, _stderr_gag) = if !verbose {
-        (gag::Gag::stdout().ok(), gag::Gag::stderr().ok())
-    } else {
-        (None, None)
-    };
-
     // Create provider for assets and/or network
     let has_provider = options.allow_net || options.assets_dir.is_some();
     let provider = if has_provider {
@@ -303,24 +283,6 @@ pub async fn render(html: &str, options: RenderOptions) -> Result<RenderedImage,
         .map(parse_hex_color)
         .unwrap_or(Color::TRANSPARENT);
     let result = render_document(&mut document, &provider, width, height, scale, background).await;
-
-    // In verbose mode, forward captured output to stderr
-    if verbose {
-        if let Some(ref mut buf) = stdout_redir {
-            let mut captured = String::new();
-            let _ = buf.read_to_string(&mut captured);
-            if !captured.is_empty() {
-                eprint!("{}", captured);
-            }
-        }
-        if let Some(ref mut buf) = stderr_redir {
-            let mut captured = String::new();
-            let _ = buf.read_to_string(&mut captured);
-            if !captured.is_empty() {
-                eprint!("{}", captured);
-            }
-        }
-    }
 
     result
 }

@@ -24,9 +24,7 @@ classifiers = [
     "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
 ]
 keywords = ["html", "css", "image", "render", "screenshot", "og-image"]
-dependencies = [
-    "maturin>=1.12.0",
-]
+dependencies = []
 
 [project.urls]
 Homepage = "https://github.com/blopker/dynimg"

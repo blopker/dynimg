@@ -173,16 +173,7 @@ async fn main() -> Result<()> {
     }
 
     // Render the document
-    // When writing to stdout, suppress any stray stdout output from dependencies
-    // (e.g. Blitz CSS parser warnings) so it doesn't corrupt the image data.
-    let image = if stdout_mode {
-        let gag = gag::Gag::stdout().context("Failed to redirect stdout")?;
-        let result = render(&html, options).await;
-        drop(gag);
-        result?
-    } else {
-        render(&html, options).await?
-    };
+    let image = render(&html, options).await?;
 
     // Output the image
     if stdout_mode {
