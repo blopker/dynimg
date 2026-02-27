@@ -46,13 +46,14 @@ use kurbo::Rect;
 use peniko::Fill;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use thiserror::Error;
+use tokio::sync::Mutex;
 
 // Stylo's global rayon thread pool uses thread-local AtomicRefCells during
 // parallel style resolution. Concurrent render calls cause "already mutably
 // borrowed" panics when rayon worker threads are shared across documents.
-static RENDER_LOCK: Mutex<()> = Mutex::new(());
+static RENDER_LOCK: Mutex<()> = Mutex::const_new(());
 
 /// Errors that can occur during rendering
 #[derive(Error, Debug)]
@@ -236,9 +237,7 @@ impl RenderedImage {
 /// # }
 /// ```
 pub async fn render(html: &str, options: RenderOptions) -> Result<RenderedImage, Error> {
-    // If a previous render panicked, the mutex is poisoned but still safe to
-    // use since it only serializes access (no shared data to corrupt).
-    let _guard = RENDER_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = RENDER_LOCK.lock().await;
 
     // Create provider for assets and/or network
     let has_provider = options.allow_net || options.assets_dir.is_some();
