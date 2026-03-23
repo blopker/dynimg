@@ -3,24 +3,54 @@
 <head>
   <meta name="dynimg:width" content="1000">
   <meta name="dynimg:height" content="600">
-  <link rel="stylesheet" href="style.css">
   <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+    }
     .container {
       width: 1000px;
       height: 600px;
       display: flex;
       padding: 40px;
       gap: 40px;
+      background: #e2e8f0;
     }
     .image-side {
       flex: 1;
       border-radius: 16px;
       overflow: hidden;
+      position: relative;
+      background: #cbd5e1;
     }
     .image-side img {
+      position: absolute;
+      top: 0;
+      left: 0;
       width: 100%;
       height: 100%;
       object-fit: cover;
+      border-radius: 16px;
+      z-index: 1;
+    }
+    .image-placeholder {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #64748b;
+      font-size: 20px;
+      text-align: center;
+      padding: 20px;
+      z-index: 0;
     }
     .content-side {
       flex: 1;
@@ -28,27 +58,37 @@
       flex-direction: column;
       justify-content: center;
     }
-    .logo {
-      width: 80px;
-      height: 80px;
-      margin-bottom: 24px;
-    }
     h1 {
       font-size: 36px;
       margin-bottom: 16px;
     }
+    p {
+      font-size: 18px;
+      line-height: 1.5;
+    }
+    .css-status-not-loaded {
+      color: #dc2626;
+      font-weight: 600;
+      margin-top: 20px;
+    }
+    .css-status-loaded {
+      display: none;
+    }
   </style>
+  <!-- Link AFTER style block so external stylesheet can override defaults -->
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="container dark-bg">
+  <div class="container">
     <div class="image-side">
+      <div class="image-placeholder">Image not loaded. Use --allow-net to fetch remote images.</div>
       <img src="https://placecats.com/500/520" alt="Cat">
     </div>
     <div class="content-side">
-      <img class="logo" src="logo.svg" alt="Logo">
-      <h1 class="text-white">Mixed Assets</h1>
-      <p class="text-white">Combines remote image (placecats.com) with local CSS and SVG.</p>
-      <p class="text-muted" style="margin-top: 20px;">Requires both --allow-net and --assets flags.</p>
+      <h1>Mixed Assets</h1>
+      <p>Combines remote image (placecats.com) with local CSS and SVG.</p>
+      <p class="css-status-not-loaded">External stylesheet NOT loaded</p>
+      <p class="css-status-loaded">External stylesheet IS loaded</p>
     </div>
   </div>
 </body>

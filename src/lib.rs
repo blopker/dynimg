@@ -239,16 +239,13 @@ impl RenderedImage {
 pub async fn render(html: &str, options: RenderOptions) -> Result<RenderedImage, Error> {
     let _guard = RENDER_LOCK.lock().await;
 
-    // Create provider for assets and/or network
-    let has_provider = options.allow_net || options.assets_dir.is_some();
-    let provider = if has_provider {
-        Some(Arc::new(CombinedProvider::new(
-            options.assets_dir.clone(),
-            options.allow_net,
-        )))
-    } else {
-        None
-    };
+    // Create provider for assets and/or network.
+    // Always created so unresolvable requests get empty responses,
+    // preventing Blitz's FOUC prevention from blocking rendering.
+    let provider = Arc::new(CombinedProvider::new(
+        options.assets_dir.clone(),
+        options.allow_net,
+    ));
 
     // Build base URL for asset resolution
     let base_url = options.base_url.clone().or_else(|| {
@@ -265,7 +262,7 @@ pub async fn render(html: &str, options: RenderOptions) -> Result<RenderedImage,
         html,
         DocumentConfig {
             base_url,
-            net_provider: provider.clone().map(|p| p as _),
+            net_provider: Some(provider.clone() as _),
             viewport: None,
             ..Default::default()
         },
@@ -503,13 +500,17 @@ impl CombinedProvider {
 
 impl NetProvider for CombinedProvider {
     fn fetch(&self, doc_id: usize, request: Request, handler: Box<dyn NetHandler>) {
-        let url = request.url.to_string();
+        let scheme = request.url.scheme();
 
-        if !url.starts_with("http://")
-            && !url.starts_with("https://")
-            && let Some(ref assets) = self.assets
-        {
-            assets.fetch(doc_id, request, handler);
+        // Non-HTTP(S) URLs (e.g. file://) are local resources that need the assets provider
+        if scheme != "http" && scheme != "https" {
+            if let Some(ref assets) = self.assets {
+                assets.fetch(doc_id, request, handler);
+            } else {
+                // Respond with empty bytes so Blitz's critical resource tracker
+                // gets cleared (prevents blank renders from FOUC prevention)
+                handler.bytes(request.url.to_string(), Bytes::new());
+            }
             return;
         }
 
@@ -521,30 +522,28 @@ impl NetProvider for CombinedProvider {
 
 async fn render_document(
     document: &mut HtmlDocument,
-    provider: &Option<Arc<CombinedProvider>>,
+    provider: &Arc<CombinedProvider>,
     width: u32,
     height: Option<u32>,
     scale: f32,
     background: Color,
 ) -> Result<RenderedImage, Error> {
     // Resolve resource requests
-    if let Some(p) = provider {
-        // Wait for all network requests including cascading requests.
-        // CSS stylesheets may trigger font fetches when processed, so we need
-        // multiple consecutive "empty" checks to ensure all cascading requests complete.
-        // Using 5 cycles provides safety margin for complex pages with many resources.
-        let mut consecutive_empty = 0u32;
-        const REQUIRED_EMPTY_CYCLES: u32 = 5;
+    // Wait for all network requests including cascading requests.
+    // CSS stylesheets may trigger font fetches when processed, so we need
+    // multiple consecutive "empty" checks to ensure all cascading requests complete.
+    // Using 5 cycles provides safety margin for complex pages with many resources.
+    let mut consecutive_empty = 0u32;
+    const REQUIRED_EMPTY_CYCLES: u32 = 5;
 
-        while consecutive_empty < REQUIRED_EMPTY_CYCLES {
-            document.resolve(0.0);
-            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+    while consecutive_empty < REQUIRED_EMPTY_CYCLES {
+        document.resolve(0.0);
+        tokio::time::sleep(std::time::Duration::from_millis(1)).await;
 
-            if p.is_empty() {
-                consecutive_empty += 1;
-            } else {
-                consecutive_empty = 0;
-            }
+        if provider.is_empty() {
+            consecutive_empty += 1;
+        } else {
+            consecutive_empty = 0;
         }
     }
 

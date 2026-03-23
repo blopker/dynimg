@@ -117,6 +117,11 @@ echo "--- Emoji ---"
 snapshot_test "emoji" png "$EXAMPLES_DIR/emoji.html"
 
 echo ""
+echo "--- Mixed Assets ---"
+snapshot_test "mixed-no-flags" png "$EXAMPLES_DIR/mixed-assets.html"
+snapshot_test "mixed-assets-only" png "$EXAMPLES_DIR/mixed-assets.html" --assets "$EXAMPLES_DIR/assets"
+
+echo ""
 echo "--- OG Image Templates ---"
 snapshot_test "og-image" png "$EXAMPLES_DIR/og-image.html"
 snapshot_test "social-card" png "$EXAMPLES_DIR/social-card.html"

@@ -41,7 +41,10 @@
       "Bash(command make:*)",
       "WebFetch(domain:packages.debian.org)",
       "Bash(command diff:*)",
-      "Bash(gh issue:*)"
+      "Bash(gh issue:*)",
+      "Bash(file:*)",
+      "Bash(ls:*)",
+      "Bash(git log:*)"
     ]
   }
 }
