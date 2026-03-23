@@ -9,7 +9,7 @@ dev:
 	maturin develop
 
 # Run tests
-test: lint install
+test: lint dev
 	cargo test
 	.venv/bin/python test_wheels/test_dynimg.py
 	./scripts/snapshot-tests.sh

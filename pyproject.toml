@@ -10,18 +10,18 @@ readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11"
 classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: MacOS",
-    "Operating System :: POSIX :: Linux",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Programming Language :: Rust",
-    "Topic :: Multimedia :: Graphics",
-    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Rust",
+  "Topic :: Multimedia :: Graphics",
+  "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
 ]
 keywords = ["html", "css", "image", "render", "screenshot", "og-image"]
 dependencies = []
@@ -34,4 +34,6 @@ Repository = "https://github.com/blopker/dynimg"
 features = ["python"]
 module-name = "dynimg._dynimg"
 python-source = "python"
-strip = true
+
+[dependency-groups]
+dev = ["maturin>=1.12.6"]

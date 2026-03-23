@@ -11,3 +11,4 @@ dist/
 *.whl
 .pytest_cache/
 *.so
+libdynimg.dylib.dSYM/

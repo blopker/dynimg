@@ -27,11 +27,15 @@ pyo3 = { version = "0.28", features = ["extension-module", "abi3-py311"], option
 
 
 # Blitz rendering engine (from git - matches example.rs)
-blitz-dom = { git = "https://github.com/DioxusLabs/blitz.git", rev = "610fb0f", features = ["tracing"] }
-blitz-html = { git = "https://github.com/DioxusLabs/blitz.git", rev = "610fb0f" }
-blitz-net = { git = "https://github.com/DioxusLabs/blitz.git", rev = "610fb0f", features = ["cache"] }
-blitz-paint = { git = "https://github.com/DioxusLabs/blitz.git", rev = "610fb0f" }
-blitz-traits = { git = "https://github.com/DioxusLabs/blitz.git", rev = "610fb0f" }
+blitz-dom = { git = "https://github.com/DioxusLabs/blitz.git", rev = "589d8a3a260bf64194b989febcf23d77442ffe61", features = [
+  "tracing",
+] }
+blitz-html = { git = "https://github.com/DioxusLabs/blitz.git", rev = "589d8a3a260bf64194b989febcf23d77442ffe61" }
+blitz-net = { git = "https://github.com/DioxusLabs/blitz.git", rev = "589d8a3a260bf64194b989febcf23d77442ffe61", features = [
+  "cache",
+] }
+blitz-paint = { git = "https://github.com/DioxusLabs/blitz.git", rev = "589d8a3a260bf64194b989febcf23d77442ffe61" }
+blitz-traits = { git = "https://github.com/DioxusLabs/blitz.git", rev = "589d8a3a260bf64194b989febcf23d77442ffe61" }
 
 # Anyrender - use the same version blitz uses (from crates.io)
 anyrender = "0.7"
@@ -66,3 +70,4 @@ bytes = "1"
 
 [profile.release]
 lto = "thin"
+strip = true
