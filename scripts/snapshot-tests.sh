@@ -120,6 +120,8 @@ echo ""
 echo "--- Mixed Assets ---"
 snapshot_test "mixed-no-flags" png "$EXAMPLES_DIR/mixed-assets.html"
 snapshot_test "mixed-assets-only" png "$EXAMPLES_DIR/mixed-assets.html" --assets "$EXAMPLES_DIR/assets"
+snapshot_test "mixed-net-only" png "$EXAMPLES_DIR/mixed-assets.html" --allow-net
+snapshot_test "mixed-both-flags" png "$EXAMPLES_DIR/mixed-assets.html" --allow-net --assets "$EXAMPLES_DIR/assets"
 
 echo ""
 echo "--- OG Image Templates ---"
