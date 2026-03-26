@@ -27,21 +27,21 @@ pyo3 = { version = "0.28", features = ["extension-module", "abi3-py38"], optiona
 
 
 # Blitz rendering engine (from git - matches example.rs)
-blitz-dom = { git = "https://github.com/DioxusLabs/blitz.git", rev = "589d8a3a260bf64194b989febcf23d77442ffe61", features = [
+blitz-dom = { git = "https://github.com/DioxusLabs/blitz.git", rev = "92eec2663f6ac5da24794c15f40b6a070c069bc3", features = [
   "tracing",
 ] }
-blitz-html = { git = "https://github.com/DioxusLabs/blitz.git", rev = "589d8a3a260bf64194b989febcf23d77442ffe61" }
-blitz-net = { git = "https://github.com/DioxusLabs/blitz.git", rev = "589d8a3a260bf64194b989febcf23d77442ffe61", features = [
+blitz-html = { git = "https://github.com/DioxusLabs/blitz.git", rev = "92eec2663f6ac5da24794c15f40b6a070c069bc3" }
+blitz-net = { git = "https://github.com/DioxusLabs/blitz.git", rev = "92eec2663f6ac5da24794c15f40b6a070c069bc3", features = [
   "cache",
 ] }
-blitz-paint = { git = "https://github.com/DioxusLabs/blitz.git", rev = "589d8a3a260bf64194b989febcf23d77442ffe61" }
-blitz-traits = { git = "https://github.com/DioxusLabs/blitz.git", rev = "589d8a3a260bf64194b989febcf23d77442ffe61" }
+blitz-paint = { git = "https://github.com/DioxusLabs/blitz.git", rev = "92eec2663f6ac5da24794c15f40b6a070c069bc3" }
+blitz-traits = { git = "https://github.com/DioxusLabs/blitz.git", rev = "92eec2663f6ac5da24794c15f40b6a070c069bc3" }
 
 # Anyrender - use the same version blitz uses (from crates.io)
-anyrender = "0.7"
-anyrender_vello_cpu = "0.9"
+anyrender = "0.8"
+anyrender_vello_cpu = "0.10"
 # Enable png feature for color emoji (SBIX bitmap) support - anyrender_vello_cpu doesn't enable it
-vello_cpu = { version = "0.0.6", default-features = false, features = ["png"] }
+vello_cpu = { version = "0.0.7", default-features = false, features = ["png"] }
 
 # Graphics primitives - use the same versions anyrender uses
 peniko = "0.6"
