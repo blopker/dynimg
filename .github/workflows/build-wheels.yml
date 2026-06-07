@@ -24,7 +24,10 @@ jobs:
           sccache: "true"
           manylinux: auto
           before-script-linux: |
-            yum install -y fontconfig-devel
+            # perl-* modules are needed to build vendored OpenSSL (openssl-src)
+            # in the manylinux2014 container; its system OpenSSL (1.0.2) is too
+            # old for openssl-sys, so we vendor a modern one (see Cargo.toml).
+            yum install -y fontconfig-devel perl-IPC-Cmd perl-Data-Dumper perl-Time-Piece
 
       - name: Upload wheels
         uses: actions/upload-artifact@v7
@@ -45,7 +48,10 @@ jobs:
           sccache: "true"
           manylinux: auto
           before-script-linux: |
-            yum install -y fontconfig-devel
+            # perl-* modules are needed to build vendored OpenSSL (openssl-src)
+            # in the manylinux2014 container; its system OpenSSL (1.0.2) is too
+            # old for openssl-sys, so we vendor a modern one (see Cargo.toml).
+            yum install -y fontconfig-devel perl-IPC-Cmd perl-Data-Dumper perl-Time-Piece
 
       - name: Upload wheels
         uses: actions/upload-artifact@v7
