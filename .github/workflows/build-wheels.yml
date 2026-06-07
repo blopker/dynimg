@@ -21,7 +21,9 @@ jobs:
         with:
           target: x86_64
           args: --release --out dist --features python
-          sccache: "true"
+          # sccache disabled: it sets CC="sccache cc" for the vendored OpenSSL
+          # build, which resolves to the old system assembler (gas 2.25) instead
+          # of devtoolset's (2.35) and fails on OpenSSL 3.x x86_64 asm.
           manylinux: auto
           before-script-linux: |
             # perl-* modules are needed to build vendored OpenSSL (openssl-src)
