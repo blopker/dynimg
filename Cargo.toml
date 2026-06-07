@@ -27,21 +27,21 @@ pyo3 = { version = "0.28", features = ["extension-module", "abi3-py38"], optiona
 
 
 # Blitz rendering engine (from git - matches example.rs)
-blitz-dom = { git = "https://github.com/DioxusLabs/blitz.git", rev = "f094f5abbf1eaf9f148749fdad9f21ec8355e22f", features = [
+blitz-dom = { git = "https://github.com/DioxusLabs/blitz.git", rev = "7ecd70b7cc4c53be826dae572ab356f1947b4c30", features = [
   "tracing",
 ] }
-blitz-html = { git = "https://github.com/DioxusLabs/blitz.git", rev = "f094f5abbf1eaf9f148749fdad9f21ec8355e22f" }
-blitz-net = { git = "https://github.com/DioxusLabs/blitz.git", rev = "f094f5abbf1eaf9f148749fdad9f21ec8355e22f", features = [
+blitz-html = { git = "https://github.com/DioxusLabs/blitz.git", rev = "7ecd70b7cc4c53be826dae572ab356f1947b4c30" }
+blitz-net = { git = "https://github.com/DioxusLabs/blitz.git", rev = "7ecd70b7cc4c53be826dae572ab356f1947b4c30", features = [
   "cache",
 ] }
-blitz-paint = { git = "https://github.com/DioxusLabs/blitz.git", rev = "f094f5abbf1eaf9f148749fdad9f21ec8355e22f" }
-blitz-traits = { git = "https://github.com/DioxusLabs/blitz.git", rev = "f094f5abbf1eaf9f148749fdad9f21ec8355e22f" }
+blitz-paint = { git = "https://github.com/DioxusLabs/blitz.git", rev = "7ecd70b7cc4c53be826dae572ab356f1947b4c30" }
+blitz-traits = { git = "https://github.com/DioxusLabs/blitz.git", rev = "7ecd70b7cc4c53be826dae572ab356f1947b4c30" }
 
 # Anyrender - use the same version blitz uses (from crates.io)
-anyrender = "0.8"
-anyrender_vello_cpu = "0.10"
+anyrender = "0.11"
+anyrender_vello_cpu = "0.14"
 # Enable png feature for color emoji (SBIX bitmap) support - anyrender_vello_cpu doesn't enable it
-vello_cpu = { version = "0.0.7", default-features = false, features = ["png"] }
+vello_cpu = { version = "0.0.9", default-features = false, features = ["png"] }
 
 # Graphics primitives - use the same versions anyrender uses
 peniko = "0.6"
@@ -52,7 +52,7 @@ clap = { version = "4", features = ["derive"] }
 
 # Image encoding
 png = "0.18"
-zenjpeg = "0.6"
+zenjpeg = "0.8"
 webp = "0.3"
 
 # Async runtime (needed for blitz-net)
@@ -71,3 +71,10 @@ bytes = "1"
 [profile.release]
 lto = "thin"
 strip = true
+
+# Pin parley to git main for the emoji + variation-selector (VS16) fix (PR #637),
+# which landed after the 0.10.0 release that blitz depends on. Without it, any
+# emoji followed by U+FE0F (e.g. ❤️, ⚠️) renders as a missing-glyph box.
+# Remove once a parley release > 0.10.0 with this fix is published and blitz uses it.
+[patch.crates-io]
+parley = { git = "https://github.com/linebender/parley", rev = "eccfebb22ebfa0a9f70c30c3465089aa46e7beb0" }

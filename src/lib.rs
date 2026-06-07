@@ -570,7 +570,7 @@ async fn render_document(
 
             paint_scene(
                 scene,
-                document.as_ref(),
+                document.as_mut(),
                 scale as f64,
                 render_width,
                 render_height_scaled,
