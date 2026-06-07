@@ -68,6 +68,13 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # For NetProvider implementation
 bytes = "1"
 
+# blitz-net pulls reqwest with the `native-tls` backend, which links system
+# OpenSSL on Linux. Vendor it so the manylinux wheel builds are self-contained
+# and don't need openssl-devel in the build container (macOS uses
+# Security.framework, so OpenSSL isn't in the graph there).
+[target.'cfg(target_os = "linux")'.dependencies]
+openssl = { version = "0.10", features = ["vendored"] }
+
 [profile.release]
 lto = "thin"
 strip = true
