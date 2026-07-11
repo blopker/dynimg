@@ -35,7 +35,7 @@ pub use python::_dynimg;
 
 use anyrender::{PaintScene as _, render_to_buffer};
 use anyrender_vello_cpu::VelloCpuImageRenderer;
-use blitz_dom::{BaseDocument, DocumentConfig, util::Color};
+use blitz_dom::{BaseDocument, DocumentConfig, StyleThreading, util::Color};
 use blitz_html::HtmlDocument;
 use blitz_net::Provider;
 use blitz_paint::paint_scene;
@@ -48,12 +48,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use thiserror::Error;
-use tokio::sync::Mutex;
-
-// Stylo's global rayon thread pool uses thread-local AtomicRefCells during
-// parallel style resolution. Concurrent render calls cause "already mutably
-// borrowed" panics when rayon worker threads are shared across documents.
-static RENDER_LOCK: Mutex<()> = Mutex::const_new(());
 
 /// Errors that can occur during rendering
 #[derive(Error, Debug)]
@@ -237,8 +231,6 @@ impl RenderedImage {
 /// # }
 /// ```
 pub async fn render(html: &str, options: RenderOptions) -> Result<RenderedImage, Error> {
-    let _guard = RENDER_LOCK.lock().await;
-
     // Create provider for assets and/or network.
     // Always created so unresolvable requests get empty responses,
     // preventing Blitz's FOUC prevention from blocking rendering.
@@ -264,6 +256,10 @@ pub async fn render(html: &str, options: RenderOptions) -> Result<RenderedImage,
             base_url,
             net_provider: Some(provider.clone() as _),
             viewport: None,
+            // Sequential bypasses Stylo's global rayon pool, which panics with
+            // "already mutably borrowed" when two documents resolve in parallel.
+            // This makes concurrent render() calls safe without a global lock.
+            style_threading: StyleThreading::Sequential,
             ..Default::default()
         },
     );

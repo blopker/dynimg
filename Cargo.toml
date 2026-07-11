@@ -23,19 +23,21 @@ python = ["pyo3"]
 
 [dependencies]
 # Python bindings (optional)
-pyo3 = { version = "0.28", features = ["extension-module", "abi3-py38"], optional = true }
+pyo3 = { version = "0.29", features = ["extension-module", "abi3-py311"], optional = true }
 
 
 # Blitz rendering engine (from git - matches example.rs)
-blitz-dom = { git = "https://github.com/DioxusLabs/blitz.git", rev = "7ecd70b7cc4c53be826dae572ab356f1947b4c30", features = [
+blitz-dom = { git = "https://github.com/DioxusLabs/blitz.git", rev = "4c54f2af7b0e388c31f361c42cf7712b601664f0", features = [
   "tracing",
+  # CSS float layout (opt-in upstream; several float fixes landed mid-2026)
+  "floats",
 ] }
-blitz-html = { git = "https://github.com/DioxusLabs/blitz.git", rev = "7ecd70b7cc4c53be826dae572ab356f1947b4c30" }
-blitz-net = { git = "https://github.com/DioxusLabs/blitz.git", rev = "7ecd70b7cc4c53be826dae572ab356f1947b4c30", features = [
+blitz-html = { git = "https://github.com/DioxusLabs/blitz.git", rev = "4c54f2af7b0e388c31f361c42cf7712b601664f0" }
+blitz-net = { git = "https://github.com/DioxusLabs/blitz.git", rev = "4c54f2af7b0e388c31f361c42cf7712b601664f0", features = [
   "cache",
 ] }
-blitz-paint = { git = "https://github.com/DioxusLabs/blitz.git", rev = "7ecd70b7cc4c53be826dae572ab356f1947b4c30" }
-blitz-traits = { git = "https://github.com/DioxusLabs/blitz.git", rev = "7ecd70b7cc4c53be826dae572ab356f1947b4c30" }
+blitz-paint = { git = "https://github.com/DioxusLabs/blitz.git", rev = "4c54f2af7b0e388c31f361c42cf7712b601664f0" }
+blitz-traits = { git = "https://github.com/DioxusLabs/blitz.git", rev = "4c54f2af7b0e388c31f361c42cf7712b601664f0" }
 
 # Anyrender - use the same version blitz uses (from crates.io)
 anyrender = "0.11"
