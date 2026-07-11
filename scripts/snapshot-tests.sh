@@ -117,6 +117,14 @@ echo "--- Emoji ---"
 snapshot_test "emoji" png "$EXAMPLES_DIR/emoji.html"
 
 echo ""
+echo "--- Data URIs (no flags needed) ---"
+snapshot_test "data-uri" png "$EXAMPLES_DIR/data-uri.html" -w 400 -H 350
+
+echo ""
+echo "--- Kitchen Sink (floats, border-style, mask, font-variant, inline bg, background-size, data URIs) ---"
+snapshot_test "kitchen-sink" png "$EXAMPLES_DIR/kitchen-sink.html" -w 500
+
+echo ""
 echo "--- Mixed Assets ---"
 snapshot_test "mixed-no-flags" png "$EXAMPLES_DIR/mixed-assets.html"
 snapshot_test "mixed-assets-only" png "$EXAMPLES_DIR/mixed-assets.html" --assets "$EXAMPLES_DIR/assets"

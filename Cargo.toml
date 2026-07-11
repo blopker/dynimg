@@ -33,9 +33,6 @@ blitz-dom = { git = "https://github.com/DioxusLabs/blitz.git", rev = "4c54f2af7b
   "floats",
 ] }
 blitz-html = { git = "https://github.com/DioxusLabs/blitz.git", rev = "4c54f2af7b0e388c31f361c42cf7712b601664f0" }
-blitz-net = { git = "https://github.com/DioxusLabs/blitz.git", rev = "4c54f2af7b0e388c31f361c42cf7712b601664f0", features = [
-  "cache",
-] }
 blitz-paint = { git = "https://github.com/DioxusLabs/blitz.git", rev = "4c54f2af7b0e388c31f361c42cf7712b601664f0" }
 blitz-traits = { git = "https://github.com/DioxusLabs/blitz.git", rev = "4c54f2af7b0e388c31f361c42cf7712b601664f0" }
 
@@ -57,8 +54,19 @@ png = "0.18"
 zenjpeg = "0.8"
 webp = "0.3"
 
-# Async runtime (needed for blitz-net)
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+# Resource fetching (src/net.rs). rustls backend, NOT native-tls: native-tls
+# links system OpenSSL on Linux, which manylinux containers don't ship a
+# modern version of (blitz-net hard-enables native-tls, hence our own provider).
+reqwest = { version = "0.13", default-features = false, features = [
+  "rustls",
+  "charset",
+  "http2",
+] }
+# data: URI decoding
+data-url = "0.3"
+
+# Async runtime
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
 
 # Error handling
 anyhow = "1"
@@ -69,13 +77,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # For NetProvider implementation
 bytes = "1"
-
-# blitz-net pulls reqwest with the `native-tls` backend, which links system
-# OpenSSL on Linux. Vendor it so the manylinux wheel builds are self-contained
-# and don't need openssl-devel in the build container (macOS uses
-# Security.framework, so OpenSSL isn't in the graph there).
-[target.'cfg(target_os = "linux")'.dependencies]
-openssl = { version = "0.10", features = ["vendored"] }
 
 [profile.release]
 lto = "thin"

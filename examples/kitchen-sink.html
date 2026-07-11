@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<!-- Kitchen sink: exercises CSS features added in the mid-2026 blitz update
+     plus data: URI decoding, so regressions show up in snapshot tests. -->
+<html>
+<head>
+<style>
+  body { font-family: sans-serif; background: #f4f4f5; margin: 0; padding: 24px; color: #18181b; }
+  h2 { font-size: 15px; margin: 20px 0 8px; color: #52525b; }
+  .row { display: flex; gap: 12px; align-items: flex-start; }
+
+  /* CSS floats (blitz-dom "floats" feature) */
+  .float-box { float: left; width: 90px; height: 60px; background: #4f46e5; color: white;
+               margin: 0 10px 4px 0; padding: 6px; font-size: 12px; }
+  .float-wrap { width: 340px; font-size: 13px; line-height: 1.4; }
+
+  /* border-style variants */
+  .b { width: 70px; height: 40px; background: white; font-size: 11px;
+       text-align: center; line-height: 40px; border: 4px solid #4f46e5; }
+  .dashed { border-style: dashed; }
+  .dotted { border-style: dotted; border-color: #dc2626; }
+  .double { border-style: double; border-width: 6px; }
+  .groove { border-style: groove; border-color: #16a34a; border-width: 6px; }
+  .mixed  { border-style: solid dashed dotted double; border-color: #4f46e5 #dc2626 #16a34a #d97706;
+            border-radius: 12px; }
+
+  /* mask-* properties */
+  .masked { width: 90px; height: 60px; background: linear-gradient(135deg, #4f46e5, #dc2626);
+            mask-image: radial-gradient(circle at center, black 40%, transparent 70%); }
+
+  /* font-variant / font-feature-settings */
+  .caps { font-variant-caps: small-caps; font-size: 16px; }
+  .nums { font-variant-numeric: tabular-nums; font-size: 16px; }
+  .feat { font-feature-settings: "smcp" 1; font-size: 16px; }
+
+  /* inline backgrounds */
+  .hl { background: #fde047; padding: 1px 4px; }
+
+  /* background-size cover / contain */
+  .bg { width: 110px; height: 70px; border: 1px solid #a1a1aa;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 10'%3E%3Crect width='20' height='10' fill='%234f46e5'/%3E%3Ccircle cx='10' cy='5' r='4' fill='%23fde047'/%3E%3C/svg%3E");
+        background-repeat: no-repeat; background-position: center; font-size: 10px; color: white; }
+  .cover { background-size: cover; }
+  .contain { background-size: contain; }
+</style>
+</head>
+<body>
+  <h2>Floats</h2>
+  <div class="float-wrap">
+    <div class="float-box">float: left</div>
+    Text wraps around the floated box. Lorem ipsum dolor sit amet, consectetur
+    adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna
+    aliqua ut enim ad minim veniam.
+    <div style="clear: both"></div>
+  </div>
+
+  <h2>border-style</h2>
+  <div class="row">
+    <div class="b dashed">dashed</div>
+    <div class="b dotted">dotted</div>
+    <div class="b double">double</div>
+    <div class="b groove">groove</div>
+    <div class="b mixed">mixed</div>
+  </div>
+
+  <h2>mask-image</h2>
+  <div class="masked"></div>
+
+  <h2>font-variant &amp; font-feature-settings</h2>
+  <div class="caps">Small Caps Variant 0123</div>
+  <div class="nums">Tabular 0123456789</div>
+  <div class="feat">Feature Settings smcp</div>
+
+  <h2>Inline backgrounds</h2>
+  <p style="font-size: 14px; width: 360px;">
+    Text with a <span class="hl">solid highlight</span> and one that spans
+    <span class="hl">across the line when it wraps to the next line of text</span>.
+  </p>
+
+  <h2>background-size</h2>
+  <div class="row">
+    <div class="bg cover">cover</div>
+    <div class="bg contain">contain</div>
+  </div>
+
+  <h2>data: URIs</h2>
+  <div class="row">
+    <img width="60" height="60" style="image-rendering: pixelated"
+      src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAEklEQVR4nGP4z8DwHx9mGBkKAMLXf4EvceABAAAAAElFTkSuQmCC">
+    <img width="60" height="60"
+      src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Ccircle cx='5' cy='5' r='4' fill='%234f46e5'/%3E%3C/svg%3E">
+  </div>
+</body>
+</html>

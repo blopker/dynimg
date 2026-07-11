@@ -21,15 +21,10 @@ jobs:
         with:
           target: x86_64
           args: --release --out dist --features python
-          # sccache disabled: it sets CC="sccache cc" for the vendored OpenSSL
-          # build, which resolves to the old system assembler (gas 2.25) instead
-          # of devtoolset's (2.35) and fails on OpenSSL 3.x x86_64 asm.
+          sccache: "true"
           manylinux: auto
           before-script-linux: |
-            # perl-* modules are needed to build vendored OpenSSL (openssl-src)
-            # in the manylinux2014 container; its system OpenSSL (1.0.2) is too
-            # old for openssl-sys, so we vendor a modern one (see Cargo.toml).
-            yum install -y fontconfig-devel perl-IPC-Cmd perl-Data-Dumper perl-Time-Piece
+            yum install -y fontconfig-devel
 
       - name: Upload wheels
         uses: actions/upload-artifact@v7
@@ -50,10 +45,7 @@ jobs:
           sccache: "true"
           manylinux: auto
           before-script-linux: |
-            # perl-* modules are needed to build vendored OpenSSL (openssl-src)
-            # in the manylinux2014 container; its system OpenSSL (1.0.2) is too
-            # old for openssl-sys, so we vendor a modern one (see Cargo.toml).
-            yum install -y fontconfig-devel perl-IPC-Cmd perl-Data-Dumper perl-Time-Piece
+            yum install -y fontconfig-devel
 
       - name: Upload wheels
         uses: actions/upload-artifact@v7

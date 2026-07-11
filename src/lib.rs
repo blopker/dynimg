@@ -27,6 +27,8 @@
 //! }
 //! ```
 
+mod net;
+
 #[cfg(feature = "python")]
 mod python;
 
@@ -37,12 +39,13 @@ use anyrender::{PaintScene as _, render_to_buffer};
 use anyrender_vello_cpu::VelloCpuImageRenderer;
 use blitz_dom::{BaseDocument, DocumentConfig, StyleThreading, util::Color};
 use blitz_html::HtmlDocument;
-use blitz_net::Provider;
 use blitz_paint::paint_scene;
 use blitz_traits::net::{NetHandler, NetProvider, Request};
 use blitz_traits::shell::{ColorScheme, Viewport};
 use bytes::Bytes;
+use data_url::DataUrl;
 use kurbo::Rect;
+use net::HttpProvider;
 use peniko::Fill;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -471,21 +474,17 @@ impl NetProvider for AssetProvider {
     }
 }
 
-/// Combined provider for assets and network requests
+/// Combined provider for data URIs, assets, and network requests
 struct CombinedProvider {
     assets: Option<AssetProvider>,
-    network: Option<Arc<Provider>>,
+    network: Option<HttpProvider>,
 }
 
 impl CombinedProvider {
     fn new(assets_dir: Option<PathBuf>, allow_net: bool) -> Self {
         Self {
             assets: assets_dir.map(AssetProvider::new),
-            network: if allow_net {
-                Some(Arc::new(Provider::new(None)))
-            } else {
-                None
-            },
+            network: allow_net.then(HttpProvider::new),
         }
     }
 
@@ -497,6 +496,19 @@ impl CombinedProvider {
 impl NetProvider for CombinedProvider {
     fn fetch(&self, doc_id: usize, request: Request, handler: Box<dyn NetHandler>) {
         let scheme = request.url.scheme();
+
+        // Inline data: URIs are self-contained; decode them regardless of
+        // asset/network settings. Undecodable ones get empty bytes so the
+        // critical resource tracker is cleared.
+        if scheme == "data" {
+            let decoded = DataUrl::process(request.url.as_str())
+                .ok()
+                .and_then(|data_url| data_url.decode_to_vec().ok())
+                .map(|(body, _fragment)| Bytes::from(body))
+                .unwrap_or_default();
+            handler.bytes(request.url.to_string(), decoded);
+            return;
+        }
 
         // Non-HTTP(S) URLs (e.g. file://) are local resources that need the assets provider
         if scheme != "http" && scheme != "https" {
