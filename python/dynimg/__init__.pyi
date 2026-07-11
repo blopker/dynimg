@@ -1,6 +1,6 @@
 """Type stubs for dynimg"""
 
-from typing import Optional
+from typing import Mapping, Optional, Sequence, Union
 
 class RenderOptions:
     """Options for rendering HTML to an image"""
@@ -16,6 +16,7 @@ class RenderOptions:
 
     def __init__(
         self,
+        *,
         width: int = 1200,
         height: Optional[int] = None,
         scale: float = 2.0,
@@ -24,6 +25,14 @@ class RenderOptions:
         base_url: Optional[str] = None,
         background: Optional[str] = None,
         verbose: bool = False,
+        fonts: Optional[
+            Union[
+                str,
+                bytes,
+                Mapping[str, Union[str, bytes]],
+                Sequence[Union[str, bytes, Mapping[str, Union[str, bytes]]]],
+            ]
+        ] = None,
     ) -> None:
         """
         Args:
@@ -35,6 +44,26 @@ class RenderOptions:
             base_url: Base URL for resolving relative paths
             background: Background color as CSS hex string, e.g. "#ffffff" (default: transparent)
             verbose: Enable verbose output (default: False). When True, dependency output is forwarded to stderr.
+            fonts: Custom fonts. A font is a file path, a directory of font
+                files (scanned recursively), or raw TTF/OTF/WOFF/WOFF2 bytes.
+                Pass one font, a list of fonts, a mapping of CSS name -> font,
+                or a list mixing fonts and mappings.
+
+                Unnamed fonts register under the family names inside the font
+                files, matching CSS font-family; they take priority over system
+                fonts with the same name, and back generic families (sans-serif,
+                ...) on hosts with no discoverable system fonts (e.g. minimal
+                Docker containers without fontconfig).
+
+                Mapping keys that are CSS generics ("serif", "sans-serif",
+                "monospace", "cursive", "fantasy", "system-ui", "emoji", "math")
+                map that generic to the font ahead of the platform mapping —
+                "emoji" replaces the platform emoji font, so emoji render
+                identically across hosts. Any other key registers the font
+                under that family name instead of the name inside the file.
+
+                Example: fonts=["./fonts", {"sans-serif": "./Inter.ttf",
+                "emoji": "./Twemoji.ttf", "brand": "./Custom.ttf"}]
         """
         ...
 

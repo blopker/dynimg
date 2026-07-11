@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<!-- Exercises the custom font API. Render with:
+     dynimg examples/custom-font.html --font examples/assets/fonts/Silkscreen-Regular.ttf
+     The Silkscreen family only resolves when passed via --font / fonts=[...];
+     without it, text falls back to the default sans-serif. -->
+<html>
+<body style="background: #18181b; color: #fafafa; padding: 40px; margin: 0;">
+  <h1 style="font-family: 'Silkscreen'; font-size: 40px; margin: 0 0 16px;">
+    Custom Font
+  </h1>
+  <p style="font-family: 'Silkscreen'; font-size: 16px; margin: 0 0 24px;">
+    Registered at render time 0123456789
+  </p>
+  <p style="font-family: sans-serif; font-size: 16px; margin: 0;">
+    This line uses the default sans-serif for contrast.
+  </p>
+</body>
+</html>

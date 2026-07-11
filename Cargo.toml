@@ -46,6 +46,16 @@ vello_cpu = { version = "0.0.9", default-features = false, features = ["png"] }
 peniko = "0.6"
 kurbo = "0.13"
 
+# Font enumeration (same git rev as the parley patch below, so it unifies with
+# blitz's parley). Direct dep for two reasons: the fontconfig-dlopen feature
+# makes libfontconfig a runtime dlopen instead of a link-time dependency (so
+# Linux wheels don't require fontconfig/libexpat on the host), and we need
+# GenericFamily to map custom fonts as generic-family fallbacks when no system
+# fonts are available.
+fontique = { git = "https://github.com/linebender/parley", rev = "eccfebb22ebfa0a9f70c30c3465089aa46e7beb0", features = [
+  "fontconfig-dlopen",
+] }
+
 # CLI
 clap = { version = "4", features = ["derive"] }
 

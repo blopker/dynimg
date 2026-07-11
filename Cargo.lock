@@ -762,6 +762,7 @@ dependencies = [
  "bytes",
  "clap",
  "data-url",
+ "fontique",
  "kurbo",
  "peniko",
  "png 0.18.1",

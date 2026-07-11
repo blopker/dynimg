@@ -7,6 +7,13 @@ from contextlib import contextmanager
 from pathlib import Path
 
 OUTPUT_DIR = Path(__file__).parent / "output"
+FONT_PATH = (
+    Path(__file__).parent.parent
+    / "examples"
+    / "assets"
+    / "fonts"
+    / "Silkscreen-Regular.ttf"
+)
 
 
 class RunTimer:
@@ -191,6 +198,107 @@ def test_render_to_file():
     return True
 
 
+def test_custom_fonts():
+    """Test custom font registration via path and bytes."""
+    import dynimg
+
+    timer = RunTimer()
+    html = (
+        '<html><body style="margin:0; background:white;">'
+        "<h1 style=\"font-family: 'Silkscreen'; font-size: 32px;\">Custom 0123</h1>"
+        "</body></html>"
+    )
+    with timer.measure("Render without font"):
+        without = dynimg.render(
+            html, dynimg.RenderOptions(width=300, height=100, scale=1.0)
+        ).to_png()
+
+    with timer.measure("Render with font path"):
+        from_path = dynimg.render(
+            html,
+            dynimg.RenderOptions(
+                width=300, height=100, scale=1.0, fonts=[str(FONT_PATH)]
+            ),
+        ).to_png()
+
+    with timer.measure("Render with font bytes"):
+        from_bytes = dynimg.render(
+            html,
+            dynimg.RenderOptions(
+                width=300, height=100, scale=1.0, fonts=[FONT_PATH.read_bytes()]
+            ),
+        ).to_png()
+
+    with timer.measure("Render with font dir"):
+        from_dir = dynimg.render(
+            html,
+            dynimg.RenderOptions(
+                width=300, height=100, scale=1.0, fonts=[str(FONT_PATH.parent)]
+            ),
+        ).to_png()
+
+    assert from_path != without, "Custom font did not change rendering"
+    assert from_path == from_bytes, "Path and bytes font sources rendered differently"
+    assert from_path == from_dir, "Directory font source rendered differently"
+
+    with timer.measure("Render with single str font"):
+        from_single = dynimg.render(
+            html, dynimg.RenderOptions(width=300, height=100, scale=1.0, fonts=str(FONT_PATH))
+        ).to_png()
+    assert from_single == from_path, "Single-str font source rendered differently"
+
+    emoji_html = (
+        '<html><body style="margin:0; background:white; font-size:32px;">'
+        "<p>\N{GRINNING FACE}\N{ROCKET}</p>"
+        "</body></html>"
+    )
+    emoji_path = FONT_PATH.parent / "TwemojiCOLRv0.ttf"
+    with timer.measure("Render with emoji mapping"):
+        with_emoji = dynimg.render(
+            emoji_html,
+            dynimg.RenderOptions(
+                width=200, height=80, scale=1.0, fonts={"emoji": str(emoji_path)}
+            ),
+        ).to_png()
+    without_emoji = dynimg.render(
+        emoji_html, dynimg.RenderOptions(width=200, height=80, scale=1.0)
+    ).to_png()
+    assert with_emoji != without_emoji, "emoji mapping did not change emoji rendering"
+
+    generic_html = (
+        '<html><body style="margin:0; background:white; font-size:24px;">'
+        '<p style="font-family: sans-serif;">Mapped sans-serif</p>'
+        '<p style="font-family: \'brand\';">Custom-named font</p>'
+        "</body></html>"
+    )
+    with timer.measure("Render with mixed list + mapping"):
+        mapped = dynimg.render(
+            generic_html,
+            dynimg.RenderOptions(
+                width=300,
+                height=120,
+                scale=1.0,
+                fonts=[
+                    str(FONT_PATH.parent),
+                    {"sans-serif": str(FONT_PATH), "brand": str(FONT_PATH)},
+                ],
+            ),
+        ).to_png()
+    unmapped = dynimg.render(
+        generic_html, dynimg.RenderOptions(width=300, height=120, scale=1.0)
+    ).to_png()
+    assert mapped != unmapped, "name mappings did not change rendering"
+    print(f"Custom font render differs from fallback: {len(from_path)} bytes")
+
+    try:
+        dynimg.RenderOptions(fonts=["/nonexistent/font.ttf"])
+        raise AssertionError("Expected IOError for missing font file")
+    except IOError:
+        print("Missing font file raises IOError")
+
+    return True
+
+
 def main():
     """Run all tests."""
     OUTPUT_DIR.mkdir(exist_ok=True)
@@ -202,6 +310,7 @@ def main():
         ("Save Formats", test_save_formats),
         ("To Bytes", test_to_bytes),
         ("Render to File", test_render_to_file),
+        ("Custom Fonts", test_custom_fonts),
     ]
 
     print("=" * 50)

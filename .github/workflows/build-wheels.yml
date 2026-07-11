@@ -23,8 +23,6 @@ jobs:
           args: --release --out dist --features python
           sccache: "true"
           manylinux: auto
-          before-script-linux: |
-            yum install -y fontconfig-devel
 
       - name: Upload wheels
         uses: actions/upload-artifact@v7
@@ -44,8 +42,6 @@ jobs:
           args: --release --out dist --features python
           sccache: "true"
           manylinux: auto
-          before-script-linux: |
-            yum install -y fontconfig-devel
 
       - name: Upload wheels
         uses: actions/upload-artifact@v7

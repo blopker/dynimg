@@ -7,10 +7,19 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-SNAPSHOTS_DIR="$PROJECT_ROOT/tests/snapshots"
+
+# Baselines are per-platform: system fonts differ between macOS and Linux, so
+# the same page renders different pixels. CI (ubuntu-latest) uses linux/,
+# local dev on Macs uses macos/.
+case "$(uname -s)" in
+    Darwin) PLATFORM="macos" ;;
+    Linux)  PLATFORM="linux" ;;
+    *)      echo "Unsupported platform for snapshots: $(uname -s)"; exit 1 ;;
+esac
+SNAPSHOTS_DIR="$PROJECT_ROOT/tests/snapshots/$PLATFORM"
 EXAMPLES_DIR="$PROJECT_ROOT/examples"
 OUTPUT_DIR="$PROJECT_ROOT/tests/output"
-mkdir -p "$OUTPUT_DIR"
+mkdir -p "$OUTPUT_DIR" "$SNAPSHOTS_DIR"
 
 # Colors
 RED='\033[0;31m'
@@ -123,6 +132,18 @@ snapshot_test "data-uri" png "$EXAMPLES_DIR/data-uri.html" -w 400 -H 350
 echo ""
 echo "--- Kitchen Sink (floats, border-style, mask, font-variant, inline bg, background-size, data URIs) ---"
 snapshot_test "kitchen-sink" png "$EXAMPLES_DIR/kitchen-sink.html" -w 500
+
+echo ""
+echo "--- Custom Fonts ---"
+snapshot_test "custom-font" png "$EXAMPLES_DIR/custom-font.html" -w 500 -H 220 --font "$EXAMPLES_DIR/assets/fonts/Silkscreen-Regular.ttf"
+snapshot_test "custom-font-dir" png "$EXAMPLES_DIR/custom-font.html" -w 500 -H 220 --font "$EXAMPLES_DIR/assets/fonts"
+snapshot_test "fonts-showcase" png "$EXAMPLES_DIR/fonts-showcase.html" -w 600 \
+    --font "$EXAMPLES_DIR/assets/fonts" \
+    --font "$EXAMPLES_DIR/assets/fonts/Silkscreen-Regular.ttf" \
+    --font "emoji=$EXAMPLES_DIR/assets/fonts/TwemojiCOLRv0.ttf" \
+    --font "cursive=$EXAMPLES_DIR/assets/fonts/Silkscreen-Regular.ttf" \
+    --font "brand=$EXAMPLES_DIR/assets/fonts/PlaywriteINGuides-Regular.ttf" \
+    --assets "$EXAMPLES_DIR/assets"
 
 echo ""
 echo "--- Mixed Assets ---"
