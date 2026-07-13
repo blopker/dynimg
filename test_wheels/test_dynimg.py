@@ -232,9 +232,13 @@ def test_custom_fonts():
         ).to_png()
     assert from_single == from_path, "Single-str font source rendered differently"
 
+    # The text generic is mapped in BOTH renders: on fontconfig hosts an
+    # unmapped generic expands to a platform list that can include an emoji
+    # font (e.g. Noto), which would win over the emoji mapping. Pinning the
+    # text generic is the documented pattern for fully pinned emoji.
     emoji_html = (
         '<html><body style="margin:0; background:white; font-size:32px;">'
-        "<p>\N{GRINNING FACE}\N{ROCKET}</p>"
+        '<p style="font-family: sans-serif;">\N{GRINNING FACE}\N{ROCKET}</p>'
         "</body></html>"
     )
     emoji_path = FONT_PATH.parent / "TwemojiCOLRv0.ttf"
@@ -242,11 +246,17 @@ def test_custom_fonts():
         with_emoji = dynimg.render(
             emoji_html,
             dynimg.RenderOptions(
-                width=200, height=80, scale=1.0, fonts={"emoji": str(emoji_path)}
+                width=200,
+                height=80,
+                scale=1.0,
+                fonts={"sans-serif": str(FONT_PATH), "emoji": str(emoji_path)},
             ),
         ).to_png()
     without_emoji = dynimg.render(
-        emoji_html, dynimg.RenderOptions(width=200, height=80, scale=1.0)
+        emoji_html,
+        dynimg.RenderOptions(
+            width=200, height=80, scale=1.0, fonts={"sans-serif": str(FONT_PATH)}
+        ),
     ).to_png()
     assert with_emoji != without_emoji, "emoji mapping did not change emoji rendering"
 
