@@ -41,76 +41,34 @@ pub struct RenderOptions {
     #[pyo3(get, set)]
     pub verbose: bool,
 
-    /// Custom fonts as raw TTF/OTF/WOFF/WOFF2 bytes (paths are read at construction)
-    pub fonts: Vec<Vec<u8>>,
+    /// Custom font file paths (TTF/OTF/WOFF/WOFF2), read at render time
+    pub fonts: Vec<String>,
 
-    /// CSS name -> font bytes. Generic names map that generic; other names
-    /// register the font under that family name.
-    pub named_fonts: Vec<(String, Vec<u8>)>,
+    /// CSS name -> font file path. Generic names map that generic; other
+    /// names register the font under that family name.
+    pub named_fonts: Vec<(String, String)>,
 }
 
-/// A custom font passed from Python: a font file path, a directory of font
-/// files, or raw font bytes
-#[derive(FromPyObject)]
-enum FontSource {
-    #[pyo3(transparent)]
-    Bytes(Vec<u8>),
-    #[pyo3(transparent)]
-    Path(String),
-}
-
-/// The `fonts` argument: one font, a mapping of CSS name -> font, or a list
+/// The `fonts` argument: one path, a mapping of CSS name -> path, or a list
 /// mixing both. Map must come first (a dict extracts only as a dict), and
 /// Single before List (a str would otherwise extract as a list of chars).
 #[derive(FromPyObject)]
 enum FontsArg {
     #[pyo3(transparent)]
-    Map(std::collections::HashMap<String, FontSource>),
+    Map(std::collections::HashMap<String, String>),
     #[pyo3(transparent)]
-    Single(FontSource),
+    Single(String),
     #[pyo3(transparent)]
     List(Vec<FontListEntry>),
 }
 
-/// A `fonts` list element: a font (path/dir/bytes) or a name -> font mapping
+/// A `fonts` list element: a font file path or a name -> path mapping
 #[derive(FromPyObject)]
 enum FontListEntry {
     #[pyo3(transparent)]
-    Map(std::collections::HashMap<String, FontSource>),
+    Map(std::collections::HashMap<String, String>),
     #[pyo3(transparent)]
-    Source(FontSource),
-}
-
-impl FontSource {
-    fn into_fonts(self) -> PyResult<Vec<Vec<u8>>> {
-        let files = match self {
-            // Decompress WOFF up front so reused options don't pay it per render
-            FontSource::Bytes(bytes) => {
-                return Ok(vec![blitz_dom::decode_font_bytes(&bytes).into_owned()]);
-            }
-            FontSource::Path(path) if std::path::Path::new(&path).is_dir() => {
-                crate::collect_font_files(std::path::Path::new(&path)).map_err(|e| {
-                    pyo3::exceptions::PyIOError::new_err(format!(
-                        "Failed to scan font dir {path}: {e}"
-                    ))
-                })?
-            }
-            FontSource::Path(path) => vec![std::path::PathBuf::from(path)],
-        };
-
-        files
-            .into_iter()
-            .map(|file| {
-                let bytes = std::fs::read(&file).map_err(|e| {
-                    pyo3::exceptions::PyIOError::new_err(format!(
-                        "Failed to read font {}: {e}",
-                        file.display()
-                    ))
-                })?;
-                Ok(blitz_dom::decode_font_bytes(&bytes).into_owned())
-            })
-            .collect()
-    }
+    Path(String),
 }
 
 #[pymethods]
@@ -128,34 +86,24 @@ impl RenderOptions {
         background: Option<String>,
         verbose: bool,
         fonts: Option<FontsArg>,
-    ) -> PyResult<Self> {
-        let mut plain: Vec<Vec<u8>> = Vec::new();
-        let mut named: Vec<(String, Vec<u8>)> = Vec::new();
-        let mut add_map = |map: std::collections::HashMap<String, FontSource>,
-                           named: &mut Vec<(String, Vec<u8>)>|
-         -> PyResult<()> {
-            for (name, source) in map {
-                for font in source.into_fonts()? {
-                    named.push((name.clone(), font));
-                }
-            }
-            Ok(())
-        };
+    ) -> Self {
+        let mut plain: Vec<String> = Vec::new();
+        let mut named: Vec<(String, String)> = Vec::new();
         match fonts {
             None => {}
-            Some(FontsArg::Single(source)) => plain.extend(source.into_fonts()?),
-            Some(FontsArg::Map(map)) => add_map(map, &mut named)?,
+            Some(FontsArg::Single(path)) => plain.push(path),
+            Some(FontsArg::Map(map)) => named.extend(map),
             Some(FontsArg::List(entries)) => {
                 for entry in entries {
                     match entry {
-                        FontListEntry::Source(source) => plain.extend(source.into_fonts()?),
-                        FontListEntry::Map(map) => add_map(map, &mut named)?,
+                        FontListEntry::Path(path) => plain.push(path),
+                        FontListEntry::Map(map) => named.extend(map),
                     }
                 }
             }
         }
 
-        Ok(Self {
+        Self {
             width,
             height,
             scale,
@@ -166,7 +114,7 @@ impl RenderOptions {
             verbose,
             fonts: plain,
             named_fonts: named,
-        })
+        }
     }
 
     fn __repr__(&self) -> String {
@@ -196,8 +144,12 @@ impl From<RenderOptions> for RustRenderOptions {
             base_url: opts.base_url,
             background: opts.background,
             verbose: opts.verbose,
-            fonts: opts.fonts,
-            named_fonts: opts.named_fonts,
+            fonts: opts.fonts.into_iter().map(PathBuf::from).collect(),
+            named_fonts: opts
+                .named_fonts
+                .into_iter()
+                .map(|(name, path)| (name, PathBuf::from(path)))
+                .collect(),
         }
     }
 }

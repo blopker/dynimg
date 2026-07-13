@@ -199,7 +199,7 @@ def test_render_to_file():
 
 
 def test_custom_fonts():
-    """Test custom font registration via path and bytes."""
+    """Test custom font registration via paths and name mappings."""
     import dynimg
 
     timer = RunTimer()
@@ -221,29 +221,14 @@ def test_custom_fonts():
             ),
         ).to_png()
 
-    with timer.measure("Render with font bytes"):
-        from_bytes = dynimg.render(
-            html,
-            dynimg.RenderOptions(
-                width=300, height=100, scale=1.0, fonts=[FONT_PATH.read_bytes()]
-            ),
-        ).to_png()
-
-    with timer.measure("Render with font dir"):
-        from_dir = dynimg.render(
-            html,
-            dynimg.RenderOptions(
-                width=300, height=100, scale=1.0, fonts=[str(FONT_PATH.parent)]
-            ),
-        ).to_png()
-
     assert from_path != without, "Custom font did not change rendering"
-    assert from_path == from_bytes, "Path and bytes font sources rendered differently"
-    assert from_path == from_dir, "Directory font source rendered differently"
 
     with timer.measure("Render with single str font"):
         from_single = dynimg.render(
-            html, dynimg.RenderOptions(width=300, height=100, scale=1.0, fonts=str(FONT_PATH))
+            html,
+            dynimg.RenderOptions(
+                width=300, height=100, scale=1.0, fonts=str(FONT_PATH)
+            ),
         ).to_png()
     assert from_single == from_path, "Single-str font source rendered differently"
 
@@ -279,7 +264,7 @@ def test_custom_fonts():
                 height=120,
                 scale=1.0,
                 fonts=[
-                    str(FONT_PATH.parent),
+                    str(FONT_PATH),
                     {"sans-serif": str(FONT_PATH), "brand": str(FONT_PATH)},
                 ],
             ),
@@ -291,10 +276,22 @@ def test_custom_fonts():
     print(f"Custom font render differs from fallback: {len(from_path)} bytes")
 
     try:
-        dynimg.RenderOptions(fonts=["/nonexistent/font.ttf"])
-        raise AssertionError("Expected IOError for missing font file")
-    except IOError:
-        print("Missing font file raises IOError")
+        dynimg.render(
+            html, dynimg.RenderOptions(fonts=["/nonexistent/font.ttf"])
+        )
+        raise AssertionError("Expected error for missing font file")
+    except RuntimeError as e:
+        assert "font" in str(e).lower(), f"unexpected error: {e}"
+        print("Missing font file raises at render")
+
+    try:
+        dynimg.render(
+            html, dynimg.RenderOptions(fonts=[str(OUTPUT_DIR / "test_basic.png")])
+        )
+        raise AssertionError("Expected error for invalid font file")
+    except RuntimeError as e:
+        assert "font" in str(e).lower(), f"unexpected error: {e}"
+        print("Invalid font file raises at render")
 
     return True
 

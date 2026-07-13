@@ -1,24 +1,25 @@
 <!DOCTYPE html>
 <!-- Showcases every way to provide fonts. Render with:
      dynimg examples/fonts-showcase.html \
-       --font examples/assets/fonts \
+       --font examples/assets/fonts/PlaywriteINGuides-Regular.ttf \
+       --font examples/assets/fonts/RobotoMono-Bold.ttf \
        --font examples/assets/fonts/Silkscreen-Regular.ttf \
        --font emoji=examples/assets/fonts/TwemojiCOLRv0.ttf \
        --font cursive=examples/assets/fonts/Silkscreen-Regular.ttf \
        --font brand=examples/assets/fonts/PlaywriteINGuides-Regular.ttf \
        --assets examples/assets
 
-     1. Directory registration:  - -font <dir> (Playwrite, Roboto Mono, Twemoji)
-     2. File registration:       - -font <file> (Silkscreen)
-     3. Emoji mapping:           - -font emoji=<file> (beats platform emoji)
-     4. Generic mapping:         - -font cursive=<file> (beats the platform's
+     1. File registration:       - -font <file>, family names read from the
+                                 files (Playwrite, Roboto Mono, Silkscreen)
+     2. Emoji mapping:           - -font emoji=<file> (beats platform emoji)
+     3. Generic mapping:         - -font cursive=<file> (beats the platform's
                                  cursive font)
-     5. Custom name:             - -font brand=<file> (font-family: 'brand')
-     6. CSS @font-face url():    RobotoMono-Bold.woff2 via - -assets
-     7. System fonts:            Arial (real on macOS, Liberation Sans via
-                                 fontconfig alias on Linux) and generic
-                                 sans-serif. These glyphs differ per platform,
-                                 which is why snapshot baselines are per-OS. -->
+     4. Custom name:             - -font brand=<file> (font-family: 'brand')
+     5. CSS @font-face url():    RobotoMono-Bold.woff2 via - -assets
+
+     Every font on this page is pinned, so it renders identically on all
+     platforms. System-font pickup is covered by system-fonts.html, which
+     has per-OS snapshot baselines. -->
 <html>
 <head>
 <style>
@@ -34,18 +35,16 @@
 </style>
 </head>
 <body>
-  <h2>--font directory</h2>
+  <h2>--font files</h2>
   <p style="font-family: 'Playwrite IN Guides'; font-size: 24px;">Playwrite handwriting</p>
   <p style="font-family: 'Roboto Mono'; font-weight: 700;">Roboto Mono Bold 0123</p>
+  <p style="font-family: 'Silkscreen';">Silkscreen pixels</p>
 
   <h2>--font emoji=Twemoji</h2>
   <!-- No special styling needed: the emoji mapping is prepended to the `emoji`
        generic, so emoji anywhere in the document resolve to Twemoji on every
        platform, beating Apple Color Emoji / Noto. -->
   <p style="font-family: 'Roboto Mono';">Emoji &#x1F600;&#x1F389;&#x2764;&#xFE0F;&#x26A0;&#xFE0F;&#x1F680; in text</p>
-
-  <h2>--font file</h2>
-  <p style="font-family: 'Silkscreen';">Silkscreen pixels</p>
 
   <h2>@font-face url() via --assets</h2>
   <p style="font-family: 'Roboto Mono Web';">Web font from woff2</p>
@@ -55,9 +54,5 @@
 
   <h2>--font brand=Playwrite</h2>
   <p style="font-family: 'brand'; font-size: 24px;">Custom name for a font file</p>
-
-  <h2>system fonts</h2>
-  <p style="font-family: Arial, sans-serif;">Arial (aliased to Liberation Sans on Linux)</p>
-  <p style="font-family: sans-serif;">Generic sans-serif</p>
 </body>
 </html>

@@ -8,8 +8,8 @@ Perfect for generating dynamic images like Open Graph (OG) images, social media 
 
 <table>
 <tr>
-<td><img src="https://raw.githubusercontent.com/blopker/dynimg/main/tests/snapshots/macos/og-image.png" width="400" alt="OG Image Example"></td>
-<td><img src="https://raw.githubusercontent.com/blopker/dynimg/main/tests/snapshots/macos/social-card.png" width="400" alt="Social Card Example"></td>
+<td><img src="https://raw.githubusercontent.com/blopker/dynimg/main/tests/snapshots/og-image.png" width="400" alt="OG Image Example"></td>
+<td><img src="https://raw.githubusercontent.com/blopker/dynimg/main/tests/snapshots/social-card.png" width="400" alt="Social Card Example"></td>
 </tr>
 </table>
 
@@ -92,7 +92,7 @@ let options = RenderOptions::default()
     .assets_dir("./assets")
     .background("#ffffff")  // CSS hex color (default: transparent)
     .verbose()              // Show dependency output on stderr
-    .font_file("./fonts/Inter-Regular.ttf")?;  // Custom font (TTF/OTF/WOFF/WOFF2)
+    .font_file("./fonts/Inter-Regular.ttf");  // Custom font (TTF/OTF/WOFF/WOFF2)
 
 // Or struct initialization
 let options = RenderOptions {
@@ -104,6 +104,7 @@ let options = RenderOptions {
     base_url: None,
     background: Some("#ffffff".into()),  // None = transparent
     verbose: false,                      // Suppress dependency output (default)
+    ..Default::default()
 };
 ```
 
@@ -151,7 +152,7 @@ PNG and WebP output supports transparent backgrounds. Simply don't set a backgro
 </body>
 ```
 
-<img src="https://raw.githubusercontent.com/blopker/dynimg/main/tests/snapshots/macos/transparent.png" width="300" alt="Transparent background example">
+<img src="https://raw.githubusercontent.com/blopker/dynimg/main/tests/snapshots/transparent.png" width="300" alt="Transparent background example">
 
 JPEG doesn't support transparency, so it automatically uses a white background.
 
@@ -200,13 +201,10 @@ dynimg input.html -o output.png --allow-net --assets ./assets
 
 ### Custom Fonts
 
-Register font files or directories directly — no `@font-face` or asset directory needed. The font's family name (read from the file) matches `font-family` in CSS:
+Register font files directly, no `@font-face` or asset directory needed. The font's family name (read from the file) matches `font-family` in CSS:
 
 ```bash
 dynimg input.html -o output.png --font Inter-Regular.ttf --font Inter-Bold.ttf
-
-# Or register everything in a directory (recursive)
-dynimg input.html -o output.png --font ./fonts
 ```
 
 ```html
@@ -215,7 +213,7 @@ dynimg input.html -o output.png --font ./fonts
 
 Registered fonts take priority over system fonts with the same family name.
 
-Fonts can also be registered under a CSS name with `NAME=FILE`. A generic name (`serif`, `sans-serif`, `monospace`, `cursive`, `fantasy`, `system-ui`, `emoji`, `math`) maps that generic to the font, ahead of the platform mapping — `emoji` replaces the platform emoji font, so emoji render identically on every host. Any other name becomes the font's family name:
+Fonts can also be registered under a CSS name with `NAME=FILE`. A CSS generic name (`serif`, `sans-serif`, `monospace`, `cursive`, `fantasy`, `system-ui`, `ui-serif`, `ui-sans-serif`, `ui-monospace`, `ui-rounded`, `emoji`, `math`, `fangsong`) maps that generic to the font with priority over the platform mapping — `emoji` takes priority over the platform emoji font, so emoji render identically on every host (to fully pin emoji, also map the text generics your pages use). Platform fonts are used only as a last resort for glyphs your fonts don't cover. Any other name becomes the font's family name:
 
 ```bash
 dynimg input.html -o output.png \
@@ -244,12 +242,15 @@ For self-contained templates, consider using inline base64 data URIs instead:
 System font discovery on Linux uses fontconfig when it's installed, but it's optional — dynimg loads it dynamically and degrades gracefully when it's missing. In a minimal container you don't need fontconfig, libexpat, or `fc-cache`; just pass your fonts directly:
 
 ```python
-options = dynimg.RenderOptions(fonts=["/app/static/fonts"])
+from pathlib import Path
+
+fonts = [str(p) for p in Path("/app/static/fonts").glob("*.ttf")]
+options = dynimg.RenderOptions(fonts=fonts)
 ```
 
 When no system fonts are discoverable, registered fonts also back generic CSS families (`sans-serif`, `serif`, `monospace`, ...), so unstyled text still renders.
 
-Name mappings pin the generic families and emoji to your fonts ahead of the platform mapping, making rendering identical on macOS, Linux, and in containers — no fontconfig aliasing required:
+Name mappings pin the generic families and emoji to your fonts, so rendering is identical on macOS, Linux, and in containers — no fontconfig aliasing required:
 
 ```python
 options = dynimg.RenderOptions(
@@ -342,8 +343,8 @@ options = dynimg.RenderOptions(
     base_url="https://example.com",  # Base URL for relative URLs (default: None)
     background="#ffffff",  # CSS hex color (default: transparent)
     verbose=False,       # Show dependency output on stderr (default: False)
-    # Custom fonts: file paths, directories, bytes, or {css_name: font} mappings (default: None)
-    fonts=["./fonts/dir", woff2_bytes, {"emoji": "./fonts/TwemojiCOLRv0.ttf"}],
+    # Custom fonts: file paths or {css_name: path} mappings (default: None)
+    fonts=["./fonts/Inter-Variable.ttf", {"emoji": "./fonts/TwemojiCOLRv0.ttf"}],
 )
 
 image = dynimg.render(html, options)
@@ -387,7 +388,7 @@ This is useful for templates that should always render at specific dimensions. R
 
 ### OG Image
 
-<img src="https://raw.githubusercontent.com/blopker/dynimg/main/tests/snapshots/macos/og-image.png" width="500" alt="OG Image Example">
+<img src="https://raw.githubusercontent.com/blopker/dynimg/main/tests/snapshots/og-image.png" width="500" alt="OG Image Example">
 
 <details>
 <summary>View HTML</summary>
@@ -428,7 +429,7 @@ This is useful for templates that should always render at specific dimensions. R
 
 ### Social Card
 
-<img src="https://raw.githubusercontent.com/blopker/dynimg/main/tests/snapshots/macos/social-card.png" width="500" alt="Social Card Example">
+<img src="https://raw.githubusercontent.com/blopker/dynimg/main/tests/snapshots/social-card.png" width="500" alt="Social Card Example">
 
 <details>
 <summary>View HTML</summary>

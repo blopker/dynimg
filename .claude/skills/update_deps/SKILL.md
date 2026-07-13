@@ -40,7 +40,7 @@ Blitz is pinned by git rev in `Cargo.toml` (blitz-dom, blitz-html, blitz-paint, 
 ## 5. Verify
 
 - `command make test` (clippy -D warnings, fmt, cargo test, wheel test, snapshot tests).
-- Snapshot failures may be legitimate rendering changes: do NOT auto-update — flag the changed files for the user to evaluate.
+- Snapshot comparison is perceptual (zensim via examples/snapcmp.rs, MIN_SCORE in scripts/snapshot-tests.sh); most baselines are platform-agnostic because tests pin fonts. Failures may be legitimate rendering changes: do NOT auto-update — flag the changed files for the user to evaluate.
 - To verify the Linux build locally (user has Docker):
   `docker run --rm -v "$PWD":/work -v "$HOME/.cargo/registry":/usr/local/cargo/registry -w /work rust:slim sh -c 'apt-get update -qq && apt-get install -y -qq python3 cmake >/dev/null; cargo build --release --target-dir /work/scratch/target-linux'`
   (python3 is for stylo's build script). Run/`ldd` the result in `debian:stable-slim` — only libgcc/libm/libc should be needed.

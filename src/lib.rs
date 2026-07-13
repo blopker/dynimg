@@ -66,6 +66,9 @@ pub enum Error {
     #[error("JPEG encoding error: {0}")]
     JpegEncoding(#[from] zenjpeg::encoder::Error),
 
+    #[error("Failed to load font {0}: {1}")]
+    FontLoad(PathBuf, String),
+
     #[error("Invalid image buffer")]
     InvalidBuffer,
 }
@@ -100,28 +103,36 @@ pub struct RenderOptions {
     /// dependencies are suppressed. When true, captured output is forwarded to stderr.
     pub verbose: bool,
 
-    /// Custom fonts to register for this render, as raw TTF/OTF/WOFF/WOFF2 bytes.
+    /// Custom font files (TTF/OTF/WOFF/WOFF2) to register for this render.
     /// Family names are read from the font files themselves, so a registered
     /// font named "Inter" matches `font-family: "Inter"` in CSS. Registered
-    /// fonts take priority over system fonts with the same family name.
+    /// fonts take priority over system fonts with the same family name, and
+    /// back the generic families (sans-serif, ...) on hosts with no
+    /// discoverable system fonts.
     ///
-    /// Registration is cheap (~1ms even for large fonts), so reusing options
-    /// across renders is not required. WOFF/WOFF2 set via [`Self::font`] /
-    /// [`Self::font_file`] is decompressed once up front; bytes assigned to
-    /// this field directly are decompressed on each render.
-    pub fonts: Vec<Vec<u8>>,
+    /// Files are read on each render; loading and registration are cheap
+    /// (~1ms even for large fonts), so reusing options across renders is not
+    /// required. Missing or invalid font files fail the render with
+    /// [`Error::FontLoad`].
+    pub fonts: Vec<PathBuf>,
 
-    /// Fonts registered under a CSS name: (name, raw font bytes) pairs.
+    /// Font files registered under a CSS name: (name, path) pairs.
     ///
     /// If the name is a CSS generic — "serif", "sans-serif", "monospace",
-    /// "cursive", "fantasy", "system-ui", "emoji", "math" — the font is used
-    /// for that generic ahead of the platform mapping, so e.g.
-    /// `font-family: sans-serif` resolves to it on any host, and `"emoji"`
-    /// replaces the platform emoji font (Apple Color Emoji, Noto, ...).
+    /// "cursive", "fantasy", "system-ui", "ui-serif", "ui-sans-serif",
+    /// "ui-monospace", "ui-rounded", "emoji", "math", "fangsong" — the font
+    /// maps that generic with priority over the platform mapping, so e.g.
+    /// `font-family: sans-serif` resolves to it on any host. `"emoji"` takes
+    /// priority over the platform emoji font (Apple Color Emoji, Noto, ...)
+    /// for the emoji generic and inside text styled with other mapped
+    /// generics; to fully pin emoji rendering, also map the text generics
+    /// your pages use (on some hosts, unmapped generics expand to platform
+    /// font lists that can include an emoji font). Platform fonts are used
+    /// only as a last resort for glyphs the mapped fonts don't cover.
     ///
     /// Any other name registers the font under that family name instead of
     /// the name inside the font file, matching `font-family: "name"` in CSS.
-    pub named_fonts: Vec<(String, Vec<u8>)>,
+    pub named_fonts: Vec<(String, PathBuf)>,
 }
 
 impl Default for RenderOptions {
@@ -199,73 +210,20 @@ impl RenderOptions {
         self
     }
 
-    /// Register a custom font from raw bytes (TTF/OTF/WOFF/WOFF2)
-    pub fn font(mut self, bytes: impl Into<Vec<u8>>) -> Self {
-        // Decompress WOFF up front so reused options don't pay it per render
-        let bytes = bytes.into();
-        self.fonts.push(decode_font_bytes(&bytes).into_owned());
+    /// Register a custom font file (TTF/OTF/WOFF/WOFF2). The file is read at
+    /// render time; a missing or invalid file fails the render.
+    pub fn font_file(mut self, path: impl Into<PathBuf>) -> Self {
+        self.fonts.push(path.into());
         self
     }
 
-    /// Register a custom font from a file (TTF/OTF/WOFF/WOFF2)
-    pub fn font_file(self, path: impl AsRef<Path>) -> Result<Self, Error> {
-        let bytes = fs::read(path)?;
-        Ok(self.font(bytes))
-    }
-
-    /// Register all fonts found in a directory (recursive). Files are loaded
-    /// in sorted path order so font priority is deterministic.
-    pub fn font_dir(mut self, path: impl AsRef<Path>) -> Result<Self, Error> {
-        for file in collect_font_files(path.as_ref())? {
-            self = self.font_file(file)?;
-        }
-        Ok(self)
-    }
-
-    /// Register a font under a CSS name, from raw bytes (TTF/OTF/WOFF/WOFF2).
-    /// Generic names ("sans-serif", "emoji", ...) map that generic to the
-    /// font; any other name registers the font under that family name.
-    pub fn named_font(mut self, name: impl Into<String>, bytes: impl Into<Vec<u8>>) -> Self {
-        let bytes = bytes.into();
-        self.named_fonts
-            .push((name.into(), decode_font_bytes(&bytes).into_owned()));
+    /// Register a font file (TTF/OTF/WOFF/WOFF2) under a CSS name. Generic
+    /// names ("sans-serif", "emoji", ...) map that generic to the font; any
+    /// other name registers the font under that family name.
+    pub fn named_font_file(mut self, name: impl Into<String>, path: impl Into<PathBuf>) -> Self {
+        self.named_fonts.push((name.into(), path.into()));
         self
     }
-
-    /// Register a font file (TTF/OTF/WOFF/WOFF2) under a CSS name
-    pub fn named_font_file(
-        self,
-        name: impl Into<String>,
-        path: impl AsRef<Path>,
-    ) -> Result<Self, Error> {
-        let bytes = fs::read(path)?;
-        Ok(self.named_font(name, bytes))
-    }
-}
-
-/// File extensions treated as fonts when scanning a directory
-const FONT_EXTENSIONS: [&str; 6] = ["ttf", "otf", "ttc", "otc", "woff", "woff2"];
-
-/// Recursively collect font files from a directory, sorted for determinism
-fn collect_font_files(dir: &Path) -> Result<Vec<PathBuf>, Error> {
-    let mut files = Vec::new();
-    let mut dirs = vec![dir.to_path_buf()];
-    while let Some(dir) = dirs.pop() {
-        for entry in fs::read_dir(&dir)? {
-            let path = entry?.path();
-            if path.is_dir() {
-                dirs.push(path);
-            } else if path
-                .extension()
-                .and_then(|e| e.to_str())
-                .is_some_and(|e| FONT_EXTENSIONS.contains(&e.to_lowercase().as_str()))
-            {
-                files.push(path);
-            }
-        }
-    }
-    files.sort();
-    Ok(files)
 }
 
 /// A rendered image with RGBA pixel data
@@ -348,8 +306,15 @@ pub async fn render(html: &str, options: RenderOptions) -> Result<RenderedImage,
     });
 
     // Register custom fonts alongside system fonts
-    let font_ctx = (!options.fonts.is_empty() || !options.named_fonts.is_empty())
-        .then(|| build_font_context(&options.fonts, &options.named_fonts, true));
+    let font_ctx = if options.fonts.is_empty() && options.named_fonts.is_empty() {
+        None
+    } else {
+        Some(build_font_context(
+            &options.fonts,
+            &options.named_fonts,
+            true,
+        )?)
+    };
 
     // Parse document
     let mut document = HtmlDocument::from_html(
@@ -474,13 +439,14 @@ fn parse_hex_color(s: &str) -> Color {
 /// system fonts.
 ///
 /// Named-font handling:
-/// - A CSS generic name ("sans-serif", "emoji", ...) PREPENDS the font to
-///   that generic family, which is what parley queries when resolving the
-///   generic keyword (and, for `emoji`, what it queries for emoji clusters).
-///   Prepending makes it win over the platform mapping, so rendering is
-///   identical across hosts. Note that a family merely NAMED "serif" would
-///   never match `font-family: serif` — CSS treats unquoted generics as
-///   keywords, resolved through the generic map, not the family-name table.
+/// - A CSS generic name ("sans-serif", "emoji", ...) maps that generic to
+///   the font with priority over the platform mapping, which is what parley
+///   queries when resolving the generic keyword (and, for `emoji`, what it
+///   queries for emoji clusters). Platform fonts remain only as a last
+///   resort for glyphs the mapped fonts don't cover. Note that a family
+///   merely NAMED "serif" would never match `font-family: serif` — CSS
+///   treats unquoted generics as keywords, resolved through the generic
+///   map, not the family-name table.
 /// - Any other name registers the font under that family name (overriding
 ///   the name inside the font file), matching `font-family: "name"`.
 ///
@@ -489,10 +455,10 @@ fn parse_hex_color(s: &str) -> Color {
 /// gracefully finds nothing — the unnamed custom fonts are appended as its
 /// fallback so unstyled text still renders.
 fn build_font_context(
-    fonts: &[Vec<u8>],
-    named_fonts: &[(String, Vec<u8>)],
+    fonts: &[PathBuf],
+    named_fonts: &[(String, PathBuf)],
     use_system_fonts: bool,
-) -> FontContext {
+) -> Result<FontContext, Error> {
     use fontique::{Collection, CollectionOptions, FontInfoOverride, GenericFamily};
 
     // `use_system_fonts` is always true in production; tests pass false to
@@ -505,55 +471,88 @@ fn build_font_context(
         source_cache: Default::default(),
     };
 
+    // Read a font file and register it, erroring on unreadable or invalid
+    // fonts (fontique silently registers nothing for unparseable data)
+    let register = |collection: &mut fontique::Collection,
+                    path: &PathBuf,
+                    family_name: Option<&str>|
+     -> Result<Vec<fontique::FamilyId>, Error> {
+        let bytes = fs::read(path).map_err(|e| Error::FontLoad(path.clone(), e.to_string()))?;
+        // Decompress WOFF/WOFF2; TTF/OTF passes through borrowed, so reuse
+        // the read buffer instead of copying
+        let data = match decode_font_bytes(&bytes) {
+            std::borrow::Cow::Owned(decompressed) => decompressed,
+            std::borrow::Cow::Borrowed(_) => bytes,
+        };
+        let ids: Vec<_> = collection
+            .register_fonts(
+                Blob::new(Arc::new(data)),
+                family_name.map(|name| FontInfoOverride {
+                    family_name: Some(name),
+                    ..Default::default()
+                }),
+            )
+            .into_iter()
+            .map(|(id, _)| id)
+            .collect();
+        if ids.is_empty() {
+            return Err(Error::FontLoad(
+                path.clone(),
+                "no font families found (not a valid font file?)".to_string(),
+            ));
+        }
+        Ok(ids)
+    };
+
     let mut registered = Vec::new();
-    for font in fonts {
-        let data = decode_font_bytes(font).into_owned();
-        let families = font_ctx
-            .collection
-            .register_fonts(Blob::new(Arc::new(data)), None);
-        registered.extend(families.into_iter().map(|(id, _)| id));
+    for path in fonts {
+        registered.extend(register(&mut font_ctx.collection, path, None)?);
     }
 
     // Group generic-named fonts by generic, preserving listed order
     let mut by_generic: Vec<(GenericFamily, Vec<_>)> = Vec::new();
-    for (name, data) in named_fonts {
-        let data = decode_font_bytes(data).into_owned();
-        let blob = Blob::new(Arc::new(data));
+    for (name, path) in named_fonts {
         if let Some(generic) = GenericFamily::parse(name) {
-            let ids = font_ctx
-                .collection
-                .register_fonts(blob, None)
-                .into_iter()
-                .map(|(id, _)| id);
+            let ids = register(&mut font_ctx.collection, path, None)?;
             match by_generic.iter_mut().find(|(g, _)| *g == generic) {
                 Some((_, group)) => group.extend(ids),
-                None => by_generic.push((generic, ids.collect())),
+                None => by_generic.push((generic, ids)),
             }
         } else {
-            font_ctx.collection.register_fonts(
-                blob,
-                Some(FontInfoOverride {
-                    family_name: Some(name),
-                    ..Default::default()
-                }),
-            );
+            register(&mut font_ctx.collection, path, Some(name))?;
         }
     }
+    // Mapped fonts take priority for their generic (fontique appends the
+    // platform's own list after ours as a last resort for uncovered glyphs).
+    // An "emoji" mapping additionally backs every OTHER mapped generic:
+    // platform generic lists can contain emoji-capable fonts (fontconfig
+    // expands e.g. system-ui to a preference list that includes Noto Color
+    // Emoji), and emoji clusters coverage-scan the styled family list before
+    // the emoji generic — so the pinned emoji font must sit in front of the
+    // platform entries there too, or emoji in mapped text become
+    // host-dependent.
+    let emoji_ids: Vec<_> = by_generic
+        .iter()
+        .find(|(g, _)| *g == GenericFamily::Emoji)
+        .map(|(_, ids)| ids.clone())
+        .unwrap_or_default();
     for (generic, ids) in by_generic {
-        let existing: Vec<_> = font_ctx.collection.generic_families(generic).collect();
+        let backing = if generic == GenericFamily::Emoji {
+            Vec::new()
+        } else {
+            emoji_ids.clone()
+        };
         font_ctx
             .collection
-            .set_generic_families(generic, ids.into_iter().chain(existing));
+            .set_generic_families(generic, ids.into_iter().chain(backing));
     }
 
-    for generic in [
-        GenericFamily::Serif,
-        GenericFamily::SansSerif,
-        GenericFamily::Monospace,
-        GenericFamily::Cursive,
-        GenericFamily::Fantasy,
-        GenericFamily::SystemUi,
-    ] {
+    // Emoji excluded: an emoji font must never back text generics (emoji
+    // fonts cover digits/space for keycap sequences and would hijack them)
+    for &generic in GenericFamily::all() {
+        if generic == GenericFamily::Emoji {
+            continue;
+        }
         if font_ctx
             .collection
             .generic_families(generic)
@@ -566,7 +565,7 @@ fn build_font_context(
         }
     }
 
-    font_ctx
+    Ok(font_ctx)
 }
 
 /// Options extracted from HTML meta tags
@@ -883,18 +882,32 @@ mod tests {
     use super::*;
     use fontique::GenericFamily;
 
-    fn test_font() -> Vec<u8> {
-        fs::read(concat!(
+    fn test_font() -> PathBuf {
+        PathBuf::from(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/examples/assets/fonts/Silkscreen-Regular.ttf"
         ))
-        .unwrap()
+    }
+
+    #[test]
+    fn invalid_font_files_error() {
+        let not_a_font = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md"));
+        let Err(err) = build_font_context(&[not_a_font], &[], false) else {
+            panic!("expected error for non-font file");
+        };
+        assert!(matches!(err, Error::FontLoad(..)), "got: {err:?}");
+
+        let missing = PathBuf::from("/nonexistent/font.ttf");
+        let Err(err) = build_font_context(&[missing], &[], false) else {
+            panic!("expected error for missing file");
+        };
+        assert!(matches!(err, Error::FontLoad(..)), "got: {err:?}");
     }
 
     #[test]
     fn custom_fonts_fill_empty_generic_families() {
         // Simulates a minimal container: no discoverable system fonts
-        let mut ctx = build_font_context(&[test_font()], &[], false);
+        let mut ctx = build_font_context(&[test_font()], &[], false).unwrap();
         assert!(ctx.collection.family_by_name("Silkscreen").is_some());
         assert!(
             ctx.collection
@@ -907,7 +920,7 @@ mod tests {
 
     #[test]
     fn custom_fonts_do_not_override_system_generic_families() {
-        let mut ctx = build_font_context(&[test_font()], &[], true);
+        let mut ctx = build_font_context(&[test_font()], &[], true).unwrap();
         let custom: Vec<_> = ctx
             .collection
             .family_by_name("Silkscreen")
@@ -924,18 +937,18 @@ mod tests {
         );
     }
 
-    fn emoji_font() -> Vec<u8> {
-        fs::read(concat!(
+    fn emoji_font() -> PathBuf {
+        PathBuf::from(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/examples/assets/fonts/TwemojiCOLRv0.ttf"
         ))
-        .unwrap()
     }
 
     #[test]
     fn emoji_font_wins_over_system_emoji() {
         let mut ctx =
-            build_font_context(&[test_font()], &[("emoji".to_string(), emoji_font())], true);
+            build_font_context(&[test_font()], &[("emoji".to_string(), emoji_font())], true)
+                .unwrap();
         let twemoji = ctx
             .collection
             .family_by_name("Twemoji COLRv0")
@@ -961,7 +974,8 @@ mod tests {
 
     #[test]
     fn emoji_font_works_without_system_fonts() {
-        let mut ctx = build_font_context(&[], &[("emoji".to_string(), emoji_font())], false);
+        let mut ctx =
+            build_font_context(&[], &[("emoji".to_string(), emoji_font())], false).unwrap();
         assert!(
             ctx.collection
                 .generic_families(fontique::GenericFamily::Emoji)
@@ -973,7 +987,8 @@ mod tests {
 
     #[test]
     fn emoji_font_does_not_back_text_generics() {
-        let mut ctx = build_font_context(&[], &[("emoji".to_string(), emoji_font())], false);
+        let mut ctx =
+            build_font_context(&[], &[("emoji".to_string(), emoji_font())], false).unwrap();
         assert!(
             ctx.collection
                 .generic_families(fontique::GenericFamily::SansSerif)
@@ -986,7 +1001,7 @@ mod tests {
     #[test]
     fn generic_font_wins_over_system_mapping() {
         let named = [("sans-serif".to_string(), test_font())];
-        let mut ctx = build_font_context(&[], &named, true);
+        let mut ctx = build_font_context(&[], &named, true).unwrap();
         let silkscreen = ctx.collection.family_by_name("Silkscreen").unwrap().id();
         let first = ctx
             .collection
@@ -995,14 +1010,48 @@ mod tests {
         assert_eq!(
             first,
             Some(silkscreen),
-            "mapped font should be the first sans-serif candidate even with system fonts"
+            "mapped font should be the first sans-serif candidate"
         );
+    }
+
+    #[test]
+    fn emoji_mapping_backs_other_mapped_generics() {
+        // Platform generic lists can contain emoji-capable fonts (fontconfig
+        // includes Noto Color Emoji in e.g. system-ui expansions), and emoji
+        // clusters scan the styled family list before the emoji generic. The
+        // emoji mapping must therefore back every mapped generic, ahead of
+        // any platform entries.
+        let named = [
+            ("sans-serif".to_string(), test_font()),
+            ("emoji".to_string(), emoji_font()),
+        ];
+        let mut ctx = build_font_context(&[], &named, false).unwrap();
+        let silkscreen = ctx.collection.family_by_name("Silkscreen").unwrap().id();
+        let twemoji = ctx
+            .collection
+            .family_by_name("Twemoji COLRv0")
+            .unwrap()
+            .id();
+        let sans: Vec<_> = ctx
+            .collection
+            .generic_families(fontique::GenericFamily::SansSerif)
+            .collect();
+        assert_eq!(
+            sans,
+            vec![silkscreen, twemoji],
+            "mapped generic should be [its font, emoji font]"
+        );
+        let emoji: Vec<_> = ctx
+            .collection
+            .generic_families(fontique::GenericFamily::Emoji)
+            .collect();
+        assert_eq!(emoji, vec![twemoji]);
     }
 
     #[test]
     fn generic_font_works_without_system_fonts() {
         let named = [("serif".to_string(), test_font())];
-        let mut ctx = build_font_context(&[], &named, false);
+        let mut ctx = build_font_context(&[], &named, false).unwrap();
         assert!(
             ctx.collection
                 .generic_families(fontique::GenericFamily::Serif)
@@ -1021,7 +1070,7 @@ mod tests {
     #[test]
     fn custom_name_overrides_family_name() {
         let named = [("myfont".to_string(), test_font())];
-        let mut ctx = build_font_context(&[], &named, false);
+        let mut ctx = build_font_context(&[], &named, false).unwrap();
         assert!(
             ctx.collection.family_by_name("myfont").is_some(),
             "font should be registered under the custom name"
@@ -1029,26 +1078,6 @@ mod tests {
         assert!(
             ctx.collection.family_by_name("Silkscreen").is_none(),
             "the name inside the font file should be replaced, not added"
-        );
-    }
-
-    #[test]
-    fn font_dir_scan_finds_fonts() {
-        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/examples/assets/fonts");
-        let files = collect_font_files(Path::new(dir)).unwrap();
-        let names: Vec<_> = files
-            .iter()
-            .filter_map(|f| f.file_name().and_then(|n| n.to_str()))
-            .collect();
-        assert_eq!(
-            names,
-            [
-                "PlaywriteINGuides-Regular.ttf",
-                "RobotoMono-Bold.ttf",
-                "Silkscreen-Regular.ttf",
-                "TwemojiCOLRv0.ttf",
-            ],
-            "font files, sorted; OFL.txt excluded"
         );
     }
 }
