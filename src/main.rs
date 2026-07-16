@@ -45,6 +45,14 @@ struct Args {
     #[arg(long)]
     assets: Option<PathBuf>,
 
+    /// Custom font files (TTF/OTF/WOFF/WOFF2), repeatable. FILE registers
+    /// the font under the family name inside the file. NAME=FILE registers
+    /// under a CSS name instead: a generic (sans-serif, emoji, ...) maps
+    /// that generic with priority over the platform mapping, any other name
+    /// becomes the font-family name.
+    #[arg(long = "font", value_name = "[NAME=]FILE")]
+    fonts: Vec<String>,
+
     /// Enable verbose logging
     #[arg(short = 'v', long)]
     verbose: bool,
@@ -149,7 +157,21 @@ async fn main() -> Result<()> {
         base_url: None,
         background,
         verbose: args.verbose,
+        fonts: Vec::new(),
+        named_fonts: Vec::new(),
     };
+
+    for font_arg in &args.fonts {
+        // A real file wins over NAME=FILE parsing, so paths containing '='
+        // still work as long as they exist. Files are read at render time.
+        options = if Path::new(font_arg).is_file() {
+            options.font_file(font_arg)
+        } else if let Some((name, file)) = font_arg.split_once('=') {
+            options.named_font_file(name, file)
+        } else {
+            bail!("Font file not found: {font_arg} (expected FILE or NAME=FILE)");
+        };
+    }
 
     // Set base URL from input file directory if not using assets
     if args.assets.is_none() && args.input != "-" {

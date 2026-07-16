@@ -40,12 +40,42 @@ pub struct RenderOptions {
     /// Enable verbose output. When false (default), dependency output is suppressed.
     #[pyo3(get, set)]
     pub verbose: bool,
+
+    /// Custom font file paths (TTF/OTF/WOFF/WOFF2), read at render time
+    pub fonts: Vec<String>,
+
+    /// CSS name -> font file path. Generic names map that generic; other
+    /// names register the font under that family name.
+    pub named_fonts: Vec<(String, String)>,
+}
+
+/// The `fonts` argument: one path, a mapping of CSS name -> path, or a list
+/// mixing both. Map must come first (a dict extracts only as a dict), and
+/// Single before List (a str would otherwise extract as a list of chars).
+#[derive(FromPyObject)]
+enum FontsArg {
+    #[pyo3(transparent)]
+    Map(std::collections::HashMap<String, String>),
+    #[pyo3(transparent)]
+    Single(String),
+    #[pyo3(transparent)]
+    List(Vec<FontListEntry>),
+}
+
+/// A `fonts` list element: a font file path or a name -> path mapping
+#[derive(FromPyObject)]
+enum FontListEntry {
+    #[pyo3(transparent)]
+    Map(std::collections::HashMap<String, String>),
+    #[pyo3(transparent)]
+    Path(String),
 }
 
 #[pymethods]
 impl RenderOptions {
     #[new]
-    #[pyo3(signature = (width=1200, height=None, scale=2.0, allow_net=false, assets_dir=None, base_url=None, background=None, verbose=false))]
+    #[pyo3(signature = (*, width=1200, height=None, scale=2.0, allow_net=false, assets_dir=None, base_url=None, background=None, verbose=false, fonts=None))]
+    #[allow(clippy::too_many_arguments)]
     fn new(
         width: u32,
         height: Option<u32>,
@@ -55,7 +85,24 @@ impl RenderOptions {
         base_url: Option<String>,
         background: Option<String>,
         verbose: bool,
+        fonts: Option<FontsArg>,
     ) -> Self {
+        let mut plain: Vec<String> = Vec::new();
+        let mut named: Vec<(String, String)> = Vec::new();
+        match fonts {
+            None => {}
+            Some(FontsArg::Single(path)) => plain.push(path),
+            Some(FontsArg::Map(map)) => named.extend(map),
+            Some(FontsArg::List(entries)) => {
+                for entry in entries {
+                    match entry {
+                        FontListEntry::Path(path) => plain.push(path),
+                        FontListEntry::Map(map) => named.extend(map),
+                    }
+                }
+            }
+        }
+
         Self {
             width,
             height,
@@ -65,19 +112,23 @@ impl RenderOptions {
             base_url,
             background,
             verbose,
+            fonts: plain,
+            named_fonts: named,
         }
     }
 
     fn __repr__(&self) -> String {
         format!(
-            "RenderOptions(width={}, height={:?}, scale={}, allow_net={}, assets_dir={:?}, background={:?}, verbose={})",
+            "RenderOptions(width={}, height={:?}, scale={}, allow_net={}, assets_dir={:?}, background={:?}, verbose={}, fonts=<{} font(s), {} named>)",
             self.width,
             self.height,
             self.scale,
             self.allow_net,
             self.assets_dir,
             self.background,
-            self.verbose
+            self.verbose,
+            self.fonts.len(),
+            self.named_fonts.len()
         )
     }
 }
@@ -93,6 +144,12 @@ impl From<RenderOptions> for RustRenderOptions {
             base_url: opts.base_url,
             background: opts.background,
             verbose: opts.verbose,
+            fonts: opts.fonts.into_iter().map(PathBuf::from).collect(),
+            named_fonts: opts
+                .named_fonts
+                .into_iter()
+                .map(|(name, path)| (name, PathBuf::from(path)))
+                .collect(),
         }
     }
 }
@@ -195,12 +252,11 @@ impl Image {
 #[pyfunction]
 #[pyo3(signature = (html, options=None))]
 fn render(py: Python<'_>, html: &str, options: Option<RenderOptions>) -> PyResult<Image> {
-    let opts: RustRenderOptions = options
-        .unwrap_or_else(|| RenderOptions::new(1200, None, 2.0, false, None, None, None, false))
-        .into();
+    let opts: RustRenderOptions = options.map(Into::into).unwrap_or_default();
 
     // Release GIL during rendering so other Python threads aren't blocked.
-    // Concurrent render safety is handled by the library-level RENDER_LOCK.
+    // Concurrent renders are safe: style resolution runs sequentially per
+    // document (StyleThreading::Sequential in lib.rs).
     py.detach(|| {
         let rt = tokio::runtime::Runtime::new()
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
@@ -236,9 +292,7 @@ fn render_to_file(
     options: Option<RenderOptions>,
     quality: u8,
 ) -> PyResult<()> {
-    let opts: RustRenderOptions = options
-        .unwrap_or_else(|| RenderOptions::new(1200, None, 2.0, false, None, None, None, false))
-        .into();
+    let opts: RustRenderOptions = options.map(Into::into).unwrap_or_default();
 
     py.detach(|| {
         let rt = tokio::runtime::Runtime::new()

@@ -7,6 +7,13 @@ from contextlib import contextmanager
 from pathlib import Path
 
 OUTPUT_DIR = Path(__file__).parent / "output"
+FONT_PATH = (
+    Path(__file__).parent.parent
+    / "examples"
+    / "assets"
+    / "fonts"
+    / "Silkscreen-Regular.ttf"
+)
 
 
 class RunTimer:
@@ -191,6 +198,114 @@ def test_render_to_file():
     return True
 
 
+def test_custom_fonts():
+    """Test custom font registration via paths and name mappings."""
+    import dynimg
+
+    timer = RunTimer()
+    html = (
+        '<html><body style="margin:0; background:white;">'
+        "<h1 style=\"font-family: 'Silkscreen'; font-size: 32px;\">Custom 0123</h1>"
+        "</body></html>"
+    )
+    with timer.measure("Render without font"):
+        without = dynimg.render(
+            html, dynimg.RenderOptions(width=300, height=100, scale=1.0)
+        ).to_png()
+
+    with timer.measure("Render with font path"):
+        from_path = dynimg.render(
+            html,
+            dynimg.RenderOptions(
+                width=300, height=100, scale=1.0, fonts=[str(FONT_PATH)]
+            ),
+        ).to_png()
+
+    assert from_path != without, "Custom font did not change rendering"
+
+    with timer.measure("Render with single str font"):
+        from_single = dynimg.render(
+            html,
+            dynimg.RenderOptions(
+                width=300, height=100, scale=1.0, fonts=str(FONT_PATH)
+            ),
+        ).to_png()
+    assert from_single == from_path, "Single-str font source rendered differently"
+
+    # The text generic is mapped in BOTH renders: on fontconfig hosts an
+    # unmapped generic expands to a platform list that can include an emoji
+    # font (e.g. Noto), which would win over the emoji mapping. Pinning the
+    # text generic is the documented pattern for fully pinned emoji.
+    emoji_html = (
+        '<html><body style="margin:0; background:white; font-size:32px;">'
+        '<p style="font-family: sans-serif;">\N{GRINNING FACE}\N{ROCKET}</p>'
+        "</body></html>"
+    )
+    emoji_path = FONT_PATH.parent / "TwemojiCOLRv0.ttf"
+    with timer.measure("Render with emoji mapping"):
+        with_emoji = dynimg.render(
+            emoji_html,
+            dynimg.RenderOptions(
+                width=200,
+                height=80,
+                scale=1.0,
+                fonts={"sans-serif": str(FONT_PATH), "emoji": str(emoji_path)},
+            ),
+        ).to_png()
+    without_emoji = dynimg.render(
+        emoji_html,
+        dynimg.RenderOptions(
+            width=200, height=80, scale=1.0, fonts={"sans-serif": str(FONT_PATH)}
+        ),
+    ).to_png()
+    assert with_emoji != without_emoji, "emoji mapping did not change emoji rendering"
+
+    generic_html = (
+        '<html><body style="margin:0; background:white; font-size:24px;">'
+        '<p style="font-family: sans-serif;">Mapped sans-serif</p>'
+        '<p style="font-family: \'brand\';">Custom-named font</p>'
+        "</body></html>"
+    )
+    with timer.measure("Render with mixed list + mapping"):
+        mapped = dynimg.render(
+            generic_html,
+            dynimg.RenderOptions(
+                width=300,
+                height=120,
+                scale=1.0,
+                fonts=[
+                    str(FONT_PATH),
+                    {"sans-serif": str(FONT_PATH), "brand": str(FONT_PATH)},
+                ],
+            ),
+        ).to_png()
+    unmapped = dynimg.render(
+        generic_html, dynimg.RenderOptions(width=300, height=120, scale=1.0)
+    ).to_png()
+    assert mapped != unmapped, "name mappings did not change rendering"
+    print(f"Custom font render differs from fallback: {len(from_path)} bytes")
+
+    try:
+        dynimg.render(
+            html, dynimg.RenderOptions(fonts=["/nonexistent/font.ttf"])
+        )
+        raise AssertionError("Expected error for missing font file")
+    except RuntimeError as e:
+        assert "font" in str(e).lower(), f"unexpected error: {e}"
+        print("Missing font file raises at render")
+
+    try:
+        dynimg.render(
+            html, dynimg.RenderOptions(fonts=[str(OUTPUT_DIR / "test_basic.png")])
+        )
+        raise AssertionError("Expected error for invalid font file")
+    except RuntimeError as e:
+        assert "font" in str(e).lower(), f"unexpected error: {e}"
+        print("Invalid font file raises at render")
+
+    return True
+
+
 def main():
     """Run all tests."""
     OUTPUT_DIR.mkdir(exist_ok=True)
@@ -202,6 +317,7 @@ def main():
         ("Save Formats", test_save_formats),
         ("To Bytes", test_to_bytes),
         ("Render to File", test_render_to_file),
+        ("Custom Fonts", test_custom_fonts),
     ]
 
     print("=" * 50)

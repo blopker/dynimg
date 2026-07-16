@@ -16,9 +16,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
-
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -42,6 +39,41 @@ jobs:
       - name: Check formatting
         run: cargo fmt -- --check
 
+  # Snapshot tests. Most baselines (tests/snapshots/) are platform-agnostic:
+  # fonts are pinned and comparison is perceptual (zensim), so macOS-generated
+  # baselines pass here. Only the system-fonts test uses per-OS baselines
+  # (tests/snapshots/linux) — regenerate locally with
+  # ./scripts/linux-snapshots.sh --update (runs an ubuntu-latest-like
+  # container; no need to pull CI artifacts).
+  snapshots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run snapshot tests
+        run: ./scripts/snapshot-tests.sh
+
+      - name: Upload rendered output
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: snapshot-output
+          path: tests/output
+
   # Build all wheels
   build:
     uses: ./.github/workflows/build-wheels.yml
@@ -52,9 +84,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-
-      - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
 
       - name: Set up Python
         uses: actions/setup-python@v6

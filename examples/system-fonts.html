@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<!-- Tests that HOST fonts are discovered: no fonts are passed in, so
+     everything below resolves through the platform (CoreText on macOS,
+     fontconfig on Linux). Glyphs differ per OS by design — this snapshot
+     has per-OS baselines in tests/snapshots/{macos,linux}, unlike the rest
+     of the suite which pins fonts and shares one baseline. -->
+<html>
+<body style="background: #fafafa; color: #18181b; margin: 0; padding: 24px; font-size: 20px;">
+  <p style="font-family: Arial, sans-serif;">Arial (Liberation Sans via fontconfig alias on Linux)</p>
+  <p style="font-family: sans-serif;">Generic sans-serif</p>
+  <p style="font-family: serif;">Generic serif</p>
+  <p style="font-family: monospace;">Generic monospace</p>
+  <p>System emoji: &#x1F600;&#x1F680;</p>
+</body>
+</html>

@@ -1,6 +1,6 @@
 """Type stubs for dynimg"""
 
-from typing import Optional
+from typing import Mapping, Optional, Sequence, Union
 
 class RenderOptions:
     """Options for rendering HTML to an image"""
@@ -16,6 +16,7 @@ class RenderOptions:
 
     def __init__(
         self,
+        *,
         width: int = 1200,
         height: Optional[int] = None,
         scale: float = 2.0,
@@ -24,6 +25,13 @@ class RenderOptions:
         base_url: Optional[str] = None,
         background: Optional[str] = None,
         verbose: bool = False,
+        fonts: Optional[
+            Union[
+                str,
+                Mapping[str, str],
+                Sequence[Union[str, Mapping[str, str]]],
+            ]
+        ] = None,
     ) -> None:
         """
         Args:
@@ -35,6 +43,30 @@ class RenderOptions:
             base_url: Base URL for resolving relative paths
             background: Background color as CSS hex string, e.g. "#ffffff" (default: transparent)
             verbose: Enable verbose output (default: False). When True, dependency output is forwarded to stderr.
+            fonts: Custom font files (TTF/OTF/WOFF/WOFF2). Pass one path,
+                a list of paths, a mapping of CSS name -> path, or a list
+                mixing paths and mappings. Files are read at render time;
+                missing or invalid fonts raise at render.
+
+                Unnamed fonts register under the family names inside the font
+                files, matching CSS font-family; they take priority over system
+                fonts with the same name, and back generic families (sans-serif,
+                ...) on hosts with no discoverable system fonts (e.g. minimal
+                Docker containers without fontconfig).
+
+                Mapping keys that are CSS generics ("serif", "sans-serif",
+                "monospace", "cursive", "fantasy", "system-ui", "ui-serif",
+                "ui-sans-serif", "ui-monospace", "ui-rounded", "emoji", "math",
+                "fangsong") map that generic to the font with priority over
+                the platform mapping — "emoji" takes priority over the
+                platform emoji font, so emoji render identically across hosts
+                (to fully pin emoji, also map the text generics your pages
+                use). Platform fonts serve only as a last resort for
+                uncovered glyphs. Any other key registers the font under that
+                family name instead of the name inside the file.
+
+                Example: fonts=["./Body.ttf", {"sans-serif": "./Inter.ttf",
+                "emoji": "./Twemoji.ttf", "brand": "./Custom.ttf"}]
         """
         ...
 

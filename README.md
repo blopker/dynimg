@@ -91,7 +91,8 @@ let options = RenderOptions::default()
     .allow_net()
     .assets_dir("./assets")
     .background("#ffffff")  // CSS hex color (default: transparent)
-    .verbose();             // Show dependency output on stderr
+    .verbose()              // Show dependency output on stderr
+    .font_file("./fonts/Inter-Regular.ttf");  // Custom font (TTF/OTF/WOFF/WOFF2)
 
 // Or struct initialization
 let options = RenderOptions {
@@ -103,6 +104,7 @@ let options = RenderOptions {
     base_url: None,
     background: Some("#ffffff".into()),  // None = transparent
     verbose: false,                      // Suppress dependency output (default)
+    ..Default::default()
 };
 ```
 
@@ -197,6 +199,29 @@ dynimg input.html -o output.png --assets ./assets
 dynimg input.html -o output.png --allow-net --assets ./assets
 ```
 
+### Custom Fonts
+
+Register font files directly, no `@font-face` or asset directory needed. The font's family name (read from the file) matches `font-family` in CSS:
+
+```bash
+dynimg input.html -o output.png --font Inter-Regular.ttf --font Inter-Bold.ttf
+```
+
+```html
+<h1 style="font-family: 'Inter'">Uses the registered font</h1>
+```
+
+Registered fonts take priority over system fonts with the same family name.
+
+Fonts can also be registered under a CSS name with `NAME=FILE`. A CSS generic name (`serif`, `sans-serif`, `monospace`, `cursive`, `fantasy`, `system-ui`, `ui-serif`, `ui-sans-serif`, `ui-monospace`, `ui-rounded`, `emoji`, `math`, `fangsong`) maps that generic to the font with priority over the platform mapping — `emoji` takes priority over the platform emoji font, so emoji render identically on every host (to fully pin emoji, also map the text generics your pages use). Platform fonts are used only as a last resort for glyphs your fonts don't cover. Any other name becomes the font's family name:
+
+```bash
+dynimg input.html -o output.png \
+  --font sans-serif=Inter-Regular.ttf \
+  --font emoji=Twemoji.ttf \
+  --font brand=FancyDisplay.ttf   # matches font-family: 'brand'
+```
+
 When using `--assets`, all local paths are resolved relative to the asset directory. Attempts to load files outside this directory will error:
 
 ```html
@@ -210,6 +235,33 @@ For self-contained templates, consider using inline base64 data URIs instead:
 
 ```html
 <img src="data:image/png;base64,iVBORw0KGgo...">
+```
+
+### Minimal containers (Docker)
+
+System font discovery on Linux uses fontconfig when it's installed, but it's optional — dynimg loads it dynamically and degrades gracefully when it's missing. In a minimal container you don't need fontconfig, libexpat, or `fc-cache`; just pass your fonts directly:
+
+```python
+from pathlib import Path
+
+fonts = [str(p) for p in Path("/app/static/fonts").glob("*.ttf")]
+options = dynimg.RenderOptions(fonts=fonts)
+```
+
+When no system fonts are discoverable, registered fonts also back generic CSS families (`sans-serif`, `serif`, `monospace`, ...), so unstyled text still renders.
+
+Name mappings pin the generic families and emoji to your fonts, so rendering is identical on macOS, Linux, and in containers — no fontconfig aliasing required:
+
+```python
+options = dynimg.RenderOptions(
+    fonts=[
+        "/app/static/fonts",
+        {
+            "sans-serif": "/app/static/fonts/Montserrat.ttf",
+            "emoji": "/app/static/fonts/TwemojiCOLRv0.ttf",
+        },
+    ],
+)
 ```
 
 ## CLI Reference
@@ -228,6 +280,10 @@ Options:
   -q, --quality <1-100>     JPEG quality [default: 90]
       --allow-net           Allow network access for loading remote resources
       --assets <DIR>        Asset directory for local resources
+      --font <[NAME=]PATH>  Custom font file or directory (TTF/OTF/WOFF/WOFF2),
+                            repeatable. NAME= registers under a CSS name:
+                            generics (sans-serif, emoji, ...) map that generic,
+                            other names become the font-family name
   -v, --verbose             Enable verbose logging and show dependency output on stderr
       --help                Print help
       --version             Print version
@@ -287,6 +343,8 @@ options = dynimg.RenderOptions(
     base_url="https://example.com",  # Base URL for relative URLs (default: None)
     background="#ffffff",  # CSS hex color (default: transparent)
     verbose=False,       # Show dependency output on stderr (default: False)
+    # Custom fonts: file paths or {css_name: path} mappings (default: None)
+    fonts=["./fonts/Inter-Variable.ttf", {"emoji": "./fonts/TwemojiCOLRv0.ttf"}],
 )
 
 image = dynimg.render(html, options)

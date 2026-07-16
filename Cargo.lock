@@ -762,6 +762,8 @@ dependencies = [
  "bytes",
  "clap",
  "data-url",
+ "fontique",
+ "image",
  "kurbo",
  "peniko",
  "png 0.18.1",
@@ -773,6 +775,8 @@ dependencies = [
  "vello_cpu",
  "webp",
  "zenjpeg",
+ "zensim",
+ "zune-jpeg 0.5.15",
 ]
 
 [[package]]
@@ -1414,8 +1418,8 @@ dependencies = [
  "image-webp",
  "num-traits",
  "png 0.17.16",
- "zune-core",
- "zune-jpeg",
+ "zune-core 0.4.12",
+ "zune-jpeg 0.4.21",
 ]
 
 [[package]]
@@ -3999,6 +4003,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "zensim"
+version = "0.2.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f46ead96f329b3f706ce66c8f36bf5b5bc1bb1fc5135c467079728379560b93c"
+dependencies = [
+ "archmage",
+ "bytemuck",
+ "imgref",
+ "linear-srgb",
+ "magetypes",
+ "rayon",
+ "rgb",
+ "thiserror",
+]
+
+[[package]]
 name = "zerocopy"
 version = "0.8.54"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4087,10 +4107,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f423a2c17029964870cfaabb1f13dfab7d092a62a29a89264f4d36990ca414a"
 
 [[package]]
+name = "zune-core"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb8a0807f7c01457d0379ba880ba6322660448ddebc890ce29bb64da71fb40f9"
+
+[[package]]
 name = "zune-jpeg"
 version = "0.4.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29ce2c8a9384ad323cf564b67da86e21d3cfdff87908bc1223ed5c99bc792713"
 dependencies = [
- "zune-core",
+ "zune-core 0.4.12",
+]
+
+[[package]]
+name = "zune-jpeg"
+version = "0.5.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "27bc9d5b815bc103f142aa054f561d9187d191692ec7c2d1e2b4737f8dbd7296"
+dependencies = [
+ "zune-core 0.5.1",
 ]
