@@ -28,7 +28,6 @@ Download the appropriate wheel for your system:
 |----------|---------------|
 | Linux x86_64 | `wheels-linux-x86_64` |
 | Linux ARM64 | `wheels-linux-aarch64` |
-| macOS x86_64 | `wheels-macos-x86_64` |
 | macOS ARM64 | `wheels-macos-aarch64` |
 
 ## Using gh CLI

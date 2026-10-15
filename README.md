@@ -565,7 +565,7 @@ The script will:
 5. Push the commit and tag to origin
 
 This triggers the GitHub Actions release workflow which:
-- Builds wheels for Linux (x86_64, aarch64) and macOS (x86_64, aarch64)
+- Builds wheels for Linux (x86_64, aarch64) and macOS (aarch64)
 - Creates a GitHub Release with all artifacts
 - Publishes to PyPI
 

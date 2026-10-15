@@ -17,7 +17,6 @@ detect_artifact() {
     case "$(uname -s)-$(uname -m)" in
         Linux-x86_64)  echo "wheels-linux-x86_64" ;;
         Linux-aarch64) echo "wheels-linux-aarch64" ;;
-        Darwin-x86_64) echo "wheels-macos-x86_64" ;;
         Darwin-arm64)  echo "wheels-macos-aarch64" ;;
         *) echo "Unknown platform: $(uname -s)-$(uname -m)" >&2; exit 1 ;;
     esac

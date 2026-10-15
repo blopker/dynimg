@@ -43,26 +43,23 @@ jobs:
           name: wheels-linux-aarch64
           path: dist
 
-  # macOS (x86_64 and aarch64)
+  # macOS (Apple silicon only)
   macos:
     runs-on: macos-latest
-    strategy:
-      matrix:
-        target: [x86_64, aarch64]
     steps:
       - uses: actions/checkout@v7
 
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
-          target: ${{ matrix.target }}
+          target: aarch64
           args: --release --out dist
           sccache: "true"
 
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
-          name: wheels-macos-${{ matrix.target }}
+          name: wheels-macos-aarch64
           path: dist
 
   # Source distribution
