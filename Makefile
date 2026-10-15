@@ -43,5 +43,6 @@ build:
 test_render:
 	./scripts/render-examples.sh
 
+# Bump the version, tag and push: make release [BUMP=patch|minor|major]
 release:
-	./scripts/release.sh
+	./scripts/release.sh $(BUMP)

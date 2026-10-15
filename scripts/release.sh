@@ -1,6 +1,6 @@
 #!/bin/bash
-# Release script: bump patch version, commit, tag, and push
-# Run from project root: ./scripts/release.sh
+# Release script: bump version, commit, tag, and push
+# Run from project root: ./scripts/release.sh [patch|minor|major]  (default: patch)
 
 set -e
 
@@ -8,6 +8,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 cd "$PROJECT_ROOT"
+
+BUMP="${1:-patch}"
+case "$BUMP" in
+    patch|minor|major) ;;
+    *) echo "Usage: $0 [patch|minor|major]" >&2; exit 1 ;;
+esac
 
 # Colors for output
 RED='\033[0;31m'
@@ -54,9 +60,11 @@ echo "Current version: $CURRENT_VERSION"
 # Parse version components
 IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
 
-# Bump patch version
-NEW_PATCH=$((PATCH + 1))
-NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
+case "$BUMP" in
+    patch) NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))" ;;
+    minor) NEW_VERSION="$MAJOR.$((MINOR + 1)).0" ;;
+    major) NEW_VERSION="$((MAJOR + 1)).0.0" ;;
+esac
 echo "New version:     $NEW_VERSION"
 echo ""
 
