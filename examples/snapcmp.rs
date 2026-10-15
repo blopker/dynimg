@@ -57,7 +57,8 @@ fn main() -> ExitCode {
 /// zune-jpeg 0.4 rejects zenjpeg's (our encoder's) output with "Marker SOS
 /// found in bitstream".
 fn decode(path: &str) -> (Vec<[u8; 4]>, usize, usize) {
-    if path.to_lowercase().ends_with(".jpg") || path.to_lowercase().ends_with(".jpeg") {
+    let lower = path.to_lowercase();
+    if lower.ends_with(".jpg") || lower.ends_with(".jpeg") {
         return decode_jpeg(path);
     }
     let image = image::ImageReader::open(path)

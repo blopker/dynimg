@@ -90,23 +90,25 @@ let options = RenderOptions::default()
     .scale(2.0)
     .allow_net()
     .assets_dir("./assets")
+    .quality(90)            // JPEG quality (default: 90)
     .background("#ffffff")  // Any CSS color (default: transparent)
-    .verbose()              // Show dependency output on stderr
     .font_file("./fonts/Inter-Regular.ttf");  // Custom font (TTF/OTF/WOFF/WOFF2)
 
 // Or struct initialization
+// (None = use the page's meta tag, then the default)
 let options = RenderOptions {
-    width: 1200,
+    width: Some(1200),
     height: Some(630),
-    scale: 2.0,
+    scale: Some(2.0),
     allow_net: true,
     assets_dir: Some("./assets".into()),
-    base_url: None,
     background: Some("#ffffff".into()),  // None = transparent
-    verbose: false,                      // Suppress dependency output (default)
     ..Default::default()
 };
 ```
+
+Options set here take precedence over [meta tags](#html-meta-tags) in the page,
+which take precedence over the defaults.
 
 ### Convenience function
 
@@ -114,7 +116,7 @@ let options = RenderOptions {
 use dynimg::{render_to_file, RenderOptions};
 
 // Render directly to a file (format detected from extension)
-render_to_file(html, "output.png", RenderOptions::default(), 90).await?;
+render_to_file(html, "output.png", RenderOptions::default()).await?;
 ```
 
 ## CLI Usage
@@ -267,24 +269,27 @@ options = dynimg.RenderOptions(
 ## CLI Reference
 
 ```
-dynimg [OPTIONS] <INPUT> -o <OUTPUT>
+dynimg [OPTIONS] <INPUT>
 
 Arguments:
   <INPUT>   HTML file path or '-' for stdin
 
 Options:
-  -o, --output <FILE>       Output image path (format detected from extension)
+  -o, --output <FILE>       Output image path (format detected from extension).
+                            '-' writes to stdout. If omitted: stdout when piped,
+                            otherwise <INPUT stem>.jpg
+  -f, --format <FORMAT>     Format when writing to stdout: png, jpg, webp [default: png]
   -w, --width <PIXELS>      Viewport width in CSS pixels [default: 1200]
   -H, --height <PIXELS>     Viewport height in CSS pixels [default: document height]
   -s, --scale <FACTOR>      Scale multiplier for output (2 = 2x resolution) [default: 2]
   -q, --quality <1-100>     JPEG quality [default: 90]
       --allow-net           Allow network access for loading remote resources
       --assets <DIR>        Asset directory for local resources
-      --font <[NAME=]PATH>  Custom font file or directory (TTF/OTF/WOFF/WOFF2),
+      --font <[NAME=]FILE>  Custom font file (TTF/OTF/WOFF/WOFF2),
                             repeatable. NAME= registers under a CSS name:
                             generics (sans-serif, emoji, ...) map that generic,
                             other names become the font-family name
-  -v, --verbose             Enable verbose logging and show dependency output on stderr
+  -v, --verbose             Enable verbose logging on stderr
       --help                Print help
       --version             Print version
 
@@ -341,14 +346,17 @@ options = dynimg.RenderOptions(
     allow_net=True,      # Allow network requests (default: False)
     assets_dir="./assets",  # Local assets directory (default: None)
     base_url="https://example.com",  # Base URL for relative URLs (default: None)
+    quality=90,          # JPEG quality (default: 90)
     background="#ffffff",  # Any CSS color (default: transparent)
-    verbose=False,       # Show dependency output on stderr (default: False)
     # Custom fonts: file paths or {css_name: path} mappings (default: None)
     fonts=["./fonts/Inter-Variable.ttf", {"emoji": "./fonts/TwemojiCOLRv0.ttf"}],
 )
 
 image = dynimg.render(html, options)
 ```
+
+Options set here take precedence over [meta tags](#html-meta-tags) in the page;
+options left unset fall back to the meta tag, then the default.
 
 ### Direct File Output
 
@@ -368,12 +376,13 @@ dynimg.render_to_file(html, "output.jpg", quality=90)
 ```python
 image = dynimg.render(html)
 print(f"Size: {image.width}x{image.height}")
+print(f"JPEG quality: {image.quality}")  # used by to_jpeg()/save_jpeg() by default
 print(f"Bytes: {len(image.data)}")
 ```
 
 ## HTML Meta Tags
 
-You can configure rendering options directly in your HTML using meta tags. CLI flags take precedence over meta tags.
+You can configure rendering options directly in your HTML using meta tags. Options passed explicitly (CLI flags, `RenderOptions` in Rust or Python) take precedence over meta tags.
 
 ```html
 <meta name="dynimg:width" content="1200">   <!-- viewport width -->

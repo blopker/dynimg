@@ -34,7 +34,7 @@ jobs:
         run: cargo test
 
       - name: Run clippy
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --all-features --all-targets -- -D warnings
 
       - name: Check formatting
         run: cargo fmt -- --check
@@ -100,4 +100,6 @@ jobs:
         run: pip install dist/*.whl
 
       - name: Run tests
-        run: python test_wheels/test_dynimg.py
+        run: |
+          python test_wheels/test_dynimg.py
+          python test_wheels/test_threading.py

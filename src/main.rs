@@ -1,6 +1,6 @@
 use anyhow::{Context, Result, bail};
 use clap::Parser;
-use dynimg::{RenderOptions, render};
+use dynimg::{ImageFormat, RenderOptions, render};
 use std::fs;
 use std::io::{self, IsTerminal, Read, Write};
 use std::path::{Path, PathBuf};
@@ -21,21 +21,21 @@ struct Args {
     #[arg(short, long)]
     format: Option<String>,
 
-    /// Viewport width in CSS pixels
-    #[arg(short, long, default_value = "1200")]
-    width: u32,
+    /// Viewport width in CSS pixels [default: 1200]
+    #[arg(short, long)]
+    width: Option<u32>,
 
     /// Viewport height in CSS pixels (defaults to document height)
     #[arg(short = 'H', long)]
     height: Option<u32>,
 
-    /// Scale factor for high-DPI rendering
-    #[arg(short, long, default_value = "2")]
-    scale: f32,
+    /// Scale factor for high-DPI rendering [default: 2]
+    #[arg(short, long)]
+    scale: Option<f32>,
 
-    /// JPEG quality (1-100)
-    #[arg(short, long, default_value = "90")]
-    quality: u8,
+    /// JPEG quality (1-100) [default: 90]
+    #[arg(short, long)]
+    quality: Option<u8>,
 
     /// Allow network access for loading remote resources
     #[arg(long)]
@@ -58,31 +58,6 @@ struct Args {
     verbose: bool,
 }
 
-/// Output format detected from file extension
-#[derive(Debug, Clone, Copy)]
-enum OutputFormat {
-    Png,
-    Jpeg,
-    WebP,
-}
-
-impl OutputFormat {
-    fn from_path(path: &Path) -> Result<Self> {
-        let ext = path
-            .extension()
-            .and_then(|e| e.to_str())
-            .map(|e| e.to_lowercase());
-
-        match ext.as_deref() {
-            Some("png") => Ok(OutputFormat::Png),
-            Some("jpg") | Some("jpeg") => Ok(OutputFormat::Jpeg),
-            Some("webp") => Ok(OutputFormat::WebP),
-            Some(ext) => bail!("Unsupported output format: .{}", ext),
-            None => bail!("Output file must have an extension (.png, .jpg, .webp)"),
-        }
-    }
-}
-
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
@@ -91,42 +66,37 @@ async fn main() -> Result<()> {
     if args.verbose {
         tracing_subscriber::fmt()
             .with_env_filter(
-                EnvFilter::from_default_env()
-                    .add_directive("blitz_dom=debug".parse().unwrap())
-                    .add_directive("blitz_net=debug".parse().unwrap()),
+                EnvFilter::from_default_env().add_directive("blitz_dom=debug".parse().unwrap()),
             )
             .with_target(true)
             .init();
     }
 
-    // Determine output destination:
+    // Determine output destination (`None` means stdout):
     // - `-o path`  → write to that file
     // - `-o -`     → always write to stdout
     // - no `-o`    → if stdout is piped/redirected, write to stdout (png default)
     //              → otherwise, default to $INPUT_STEM.jpg in cwd
-    let (output_path, stdout_mode) = match &args.output {
-        Some(p) if p.as_os_str() == "-" => (None, true),
-        Some(p) => (Some(p.clone()), false),
-        None if !io::stdout().is_terminal() => (None, true),
+    let output_path = match &args.output {
+        Some(p) if p.as_os_str() == "-" => None,
+        Some(p) => Some(p.clone()),
+        None if !io::stdout().is_terminal() => None,
         None => {
             // Default to input_stem.jpg in cwd
             let stem = Path::new(&args.input)
                 .file_stem()
                 .and_then(|s| s.to_str())
                 .unwrap_or("output");
-            (Some(PathBuf::from(format!("{}.jpg", stem))), false)
+            Some(PathBuf::from(format!("{}.jpg", stem)))
         }
     };
 
-    let format = if stdout_mode {
-        match args.format.as_deref() {
-            None | Some("png") => OutputFormat::Png,
-            Some("jpg") | Some("jpeg") => OutputFormat::Jpeg,
-            Some("webp") => OutputFormat::WebP,
-            Some(f) => bail!("Unsupported format: {}", f),
+    let format = match (&output_path, args.format.as_deref()) {
+        (Some(path), _) => ImageFormat::from_path(path)?,
+        (None, None) => ImageFormat::Png,
+        (None, Some(f)) => {
+            ImageFormat::from_extension(f).with_context(|| format!("Unsupported format: {f}"))?
         }
-    } else {
-        OutputFormat::from_path(output_path.as_ref().unwrap())?
     };
 
     // Read HTML input
@@ -141,25 +111,18 @@ async fn main() -> Result<()> {
             .with_context(|| format!("Failed to read file: {}", args.input))?
     };
 
-    // Build render options
-    // Use white background for JPEG (no transparency support)
-    let background = match format {
-        OutputFormat::Jpeg => Some("#ffffff".to_string()),
-        _ => None,
-    };
-
+    // Unset width/height/scale/quality fall back to meta tags, then defaults
     let mut options = RenderOptions {
         width: args.width,
         height: args.height,
         scale: args.scale,
+        quality: args.quality,
         allow_net: args.allow_net,
         assets_dir: args.assets.clone(),
-        base_url: None,
-        background,
         verbose: args.verbose,
-        fonts: Vec::new(),
-        named_fonts: Vec::new(),
-    };
+        ..Default::default()
+    }
+    .for_format(format);
 
     for font_arg in &args.fonts {
         // A real file wins over NAME=FILE parsing, so paths containing '='
@@ -181,47 +144,36 @@ async fn main() -> Result<()> {
         }
     }
 
-    if args.verbose && stdout_mode {
-        eprintln!("[config] output: stdout ({:?})", format);
-    }
-
     if args.verbose {
+        eprintln!("[config] output: {format:?}");
         eprintln!("[config] allow_net: {}", args.allow_net);
         eprintln!("[config] assets: {:?}", args.assets);
         eprintln!(
-            "[config] width: {}, height: {:?}, scale: {}",
-            args.width, args.height, args.scale
+            "[config] width: {:?}, height: {:?}, scale: {:?}, quality: {:?} (None = meta tag or default)",
+            args.width, args.height, args.scale, args.quality
         );
     }
 
-    // Render the document
     let image = render(&html, options).await?;
+    let bytes = image.encode(format)?;
 
-    // Output the image
-    if stdout_mode {
-        let bytes = match format {
-            OutputFormat::Png => image.to_png()?,
-            OutputFormat::Jpeg => image.to_jpeg(args.quality)?,
-            OutputFormat::WebP => image.to_webp(),
-        };
-        io::stdout()
-            .write_all(&bytes)
-            .context("Failed to write to stdout")?;
-        eprintln!("Wrote {}x{} image to stdout", image.width, image.height);
-    } else {
-        let output = output_path.as_ref().unwrap();
-        match format {
-            OutputFormat::Png => image.save_png(output)?,
-            OutputFormat::Jpeg => image.save_jpeg(output, args.quality)?,
-            OutputFormat::WebP => image.save_webp(output)?,
+    let destination = match &output_path {
+        Some(path) => {
+            fs::write(path, &bytes)
+                .with_context(|| format!("Failed to write {}", path.display()))?;
+            path.display().to_string()
         }
-        eprintln!(
-            "Wrote {}x{} image to {}",
-            image.width,
-            image.height,
-            output.display()
-        );
-    }
+        None => {
+            io::stdout()
+                .write_all(&bytes)
+                .context("Failed to write to stdout")?;
+            "stdout".to_string()
+        }
+    };
+    eprintln!(
+        "Wrote {}x{} image to {destination}",
+        image.width, image.height
+    );
 
     Ok(())
 }

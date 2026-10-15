@@ -26,7 +26,7 @@ python = ["pyo3"]
 pyo3 = { version = "0.30", features = ["extension-module", "abi3-py311"], optional = true }
 
 
-# Blitz rendering engine (from git - matches example.rs)
+# Blitz rendering engine (pinned git rev; all blitz crates must share it)
 blitz-dom = { git = "https://github.com/DioxusLabs/blitz.git", rev = "e72650a6e67941852fddf025295cfee30c39ea32", features = [
   "tracing",
   # CSS float layout (opt-in upstream; several float fixes landed mid-2026)

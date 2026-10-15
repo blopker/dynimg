@@ -91,19 +91,11 @@ run_test "quote.html" false "$DYNIMG" "$EXAMPLES_DIR/quote.html" -o "$OUTPUT_DIR
 
 echo ""
 echo "--- Stdin Input ---"
-printf "  %-50s " "From stdin"
-start_time=$(perl -MTime::HiRes=time -e 'printf "%.3f", time')
-echo '<html><body style="background:#10b981;padding:50px;"><h1 style="color:white;font-size:48px;">Stdin Test</h1></body></html>' | "$DYNIMG" - -o "$OUTPUT_DIR/stdin-test.png" > /dev/null 2>&1
-result=$?
-end_time=$(perl -MTime::HiRes=time -e 'printf "%.3f", time')
-elapsed=$(echo "$end_time - $start_time" | bc)
-if [ $result -eq 0 ]; then
-    printf "OK               (%5.2fs)\n" "$elapsed"
-    ((PASSED++))
-else
-    printf "FAIL             (%5.2fs)\n" "$elapsed"
-    ((FAILED++))
-fi
+render_from_stdin() {
+    echo '<html><body style="background:#10b981;padding:50px;"><h1 style="color:white;font-size:48px;">Stdin Test</h1></body></html>' |
+        "$DYNIMG" - -o "$OUTPUT_DIR/stdin-test.png"
+}
+run_test "From stdin" false render_from_stdin
 
 echo ""
 echo "--- Expected Failures ---"

@@ -6,7 +6,7 @@
 # Examples:
 #   ./test_from_ci.sh                           # Latest run, auto-detect platform
 #   ./test_from_ci.sh 12345678                  # Specific run, auto-detect platform
-#   ./test_from_ci.sh 12345678 wheel-linux-x86_64  # Specific run and artifact
+#   ./test_from_ci.sh 12345678 wheels-linux-x86_64  # Specific run and artifact
 
 set -e
 
@@ -15,10 +15,10 @@ cd "$(dirname "$0")"
 # Auto-detect platform artifact name
 detect_artifact() {
     case "$(uname -s)-$(uname -m)" in
-        Linux-x86_64)  echo "wheel-linux-x86_64" ;;
-        Linux-aarch64) echo "wheel-linux-aarch64" ;;
-        Darwin-x86_64) echo "wheel-macos-x86_64" ;;
-        Darwin-arm64)  echo "wheel-macos-aarch64" ;;
+        Linux-x86_64)  echo "wheels-linux-x86_64" ;;
+        Linux-aarch64) echo "wheels-linux-aarch64" ;;
+        Darwin-x86_64) echo "wheels-macos-x86_64" ;;
+        Darwin-arm64)  echo "wheels-macos-aarch64" ;;
         *) echo "Unknown platform: $(uname -s)-$(uname -m)" >&2; exit 1 ;;
     esac
 }

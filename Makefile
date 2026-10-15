@@ -1,4 +1,4 @@
-.PHONY: install dev test lint fmt clean build
+.PHONY: *
 
 # Install Python package into local venv
 install:
@@ -12,6 +12,7 @@ dev:
 test: lint dev
 	cargo test
 	.venv/bin/python test_wheels/test_dynimg.py
+	.venv/bin/python test_wheels/test_threading.py
 	./scripts/snapshot-tests.sh
 
 update_snapshot:
@@ -30,7 +31,6 @@ fmt:
 clean:
 	cargo clean
 	rm -rf dist/
-	rm -rf target/
 	rm -rf *.egg-info/
 
 # Build release wheels

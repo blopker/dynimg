@@ -38,11 +38,12 @@ pub use python::_dynimg;
 use anyrender::{PaintScene as _, render_to_buffer};
 use anyrender_vello_cpu::VelloCpuImageRenderer;
 use blitz_dom::{
-    BaseDocument, DocumentConfig, FontContext, StyleThreading, decode_font_bytes, util::Color,
+    BaseDocument, DocumentConfig, FontContext, StyleThreading, decode_font_bytes, local_name,
+    util::Color,
 };
 use blitz_html::HtmlDocument;
 use blitz_paint::paint_scene;
-use blitz_traits::net::{NetHandler, NetProvider, Request};
+use blitz_traits::net::{NetHandler, NetProvider, Request, Url};
 use blitz_traits::shell::{ColorScheme, Viewport};
 use bytes::Bytes;
 use data_url::DataUrl;
@@ -69,22 +70,67 @@ pub enum Error {
     #[error("Failed to load font {0}: {1}")]
     FontLoad(PathBuf, String),
 
-    #[error("Invalid image buffer")]
-    InvalidBuffer,
+    #[error("Unsupported image format {0:?} (expected png, jpg, jpeg or webp)")]
+    UnsupportedFormat(String),
 }
 
-/// Options for rendering HTML to an image
-#[derive(Debug, Clone)]
+/// Viewport width used when neither options nor a meta tag set one
+pub const DEFAULT_WIDTH: u32 = 1200;
+/// Scale factor used when neither options nor a meta tag set one
+pub const DEFAULT_SCALE: f32 = 2.0;
+/// JPEG quality used when neither options nor a meta tag set one
+pub const DEFAULT_QUALITY: u8 = 90;
+
+/// Output image format
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ImageFormat {
+    Png,
+    /// Lossy; has no alpha channel, so transparent areas need a background
+    Jpeg,
+    /// Lossless
+    WebP,
+}
+
+impl ImageFormat {
+    /// Parse a format name or file extension ("png", "jpg", "jpeg", "webp"),
+    /// case-insensitively
+    pub fn from_extension(ext: &str) -> Option<Self> {
+        match ext.to_ascii_lowercase().as_str() {
+            "png" => Some(Self::Png),
+            "jpg" | "jpeg" => Some(Self::Jpeg),
+            "webp" => Some(Self::WebP),
+            _ => None,
+        }
+    }
+
+    /// Detect the format from a file path's extension
+    pub fn from_path(path: &Path) -> Result<Self, Error> {
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        Self::from_extension(ext).ok_or_else(|| Error::UnsupportedFormat(ext.to_string()))
+    }
+}
+
+/// Options for rendering HTML to an image.
+///
+/// `width`, `height`, `scale` and `quality` can also be set by the page with
+/// `<meta name="dynimg:...">` tags. Options set here take precedence over
+/// meta tags, which take precedence over the defaults.
+#[derive(Debug, Clone, Default)]
 pub struct RenderOptions {
-    /// Viewport width in CSS pixels (default: 1200)
-    pub width: u32,
+    /// Viewport width in CSS pixels (default: [`DEFAULT_WIDTH`])
+    pub width: Option<u32>,
 
     /// Viewport height in CSS pixels. If None, auto-sizes to content height.
     pub height: Option<u32>,
 
-    /// Scale factor for output resolution (default: 2.0 for retina displays).
-    /// Output dimensions = viewport × scale
-    pub scale: f32,
+    /// Scale factor for output resolution (default: [`DEFAULT_SCALE`], for
+    /// retina displays). Output dimensions = viewport × scale
+    pub scale: Option<f32>,
+
+    /// JPEG quality 1-100 (default: [`DEFAULT_QUALITY`]). The resolved value
+    /// is stored on [`RenderedImage::quality`] and used by
+    /// [`RenderedImage::encode`].
+    pub quality: Option<u8>,
 
     /// Allow network requests for loading remote resources (images, fonts, etc.)
     pub allow_net: bool,
@@ -100,8 +146,8 @@ pub struct RenderOptions {
     /// Automatically set to white for JPEG output via CLI and `render_to_file()`.
     pub background: Option<String>,
 
-    /// Enable verbose output. When false (default), stdout and stderr from
-    /// dependencies are suppressed. When true, captured output is forwarded to stderr.
+    /// Reserved for future diagnostic output; currently has no effect on
+    /// rendering. (The CLI's `--verbose` flag enables its own logging.)
     pub verbose: bool,
 
     /// Custom font files (TTF/OTF/WOFF/WOFF2) to register for this render.
@@ -136,36 +182,15 @@ pub struct RenderOptions {
     pub named_fonts: Vec<(String, PathBuf)>,
 }
 
-impl Default for RenderOptions {
-    fn default() -> Self {
-        Self {
-            width: 1200,
-            height: None,
-            scale: 2.0,
-            allow_net: false,
-            assets_dir: None,
-            base_url: None,
-            background: None,
-            verbose: false,
-            fonts: Vec::new(),
-            named_fonts: Vec::new(),
-        }
-    }
-}
-
 impl RenderOptions {
     /// Create options with a specific viewport size
     pub fn with_size(width: u32, height: u32) -> Self {
-        Self {
-            width,
-            height: Some(height),
-            ..Default::default()
-        }
+        Self::default().width(width).height(height)
     }
 
     /// Set the viewport width
     pub fn width(mut self, width: u32) -> Self {
-        self.width = width;
+        self.width = Some(width);
         self
     }
 
@@ -177,7 +202,13 @@ impl RenderOptions {
 
     /// Set the scale factor
     pub fn scale(mut self, scale: f32) -> Self {
-        self.scale = scale;
+        self.scale = Some(scale);
+        self
+    }
+
+    /// Set the JPEG quality (1-100)
+    pub fn quality(mut self, quality: u8) -> Self {
+        self.quality = Some(quality);
         self
     }
 
@@ -205,7 +236,7 @@ impl RenderOptions {
         self
     }
 
-    /// Enable verbose output (forward dependency stdout/stderr to stderr)
+    /// Set the reserved verbose flag (currently has no effect on rendering)
     pub fn verbose(mut self) -> Self {
         self.verbose = true;
         self
@@ -225,6 +256,15 @@ impl RenderOptions {
         self.named_fonts.push((name.into(), path.into()));
         self
     }
+
+    /// Adjust options for an output format: JPEG has no transparency, so it
+    /// gets a white background unless one is already set.
+    pub fn for_format(mut self, format: ImageFormat) -> Self {
+        if format == ImageFormat::Jpeg && self.background.is_none() {
+            self.background = Some("#ffffff".to_string());
+        }
+        self
+    }
 }
 
 /// A rendered image with RGBA pixel data
@@ -238,37 +278,86 @@ pub struct RenderedImage {
 
     /// Image height in pixels
     pub height: u32,
+
+    /// JPEG quality resolved from the render options, the page's
+    /// `dynimg:quality` meta tag, or [`DEFAULT_QUALITY`]
+    pub quality: u8,
 }
 
 impl RenderedImage {
+    /// Encode the image in the given format, using [`Self::quality`] for JPEG
+    pub fn encode(&self, format: ImageFormat) -> Result<Vec<u8>, Error> {
+        match format {
+            ImageFormat::Png => self.to_png(),
+            ImageFormat::Jpeg => self.to_jpeg(self.quality),
+            ImageFormat::WebP => Ok(self.to_webp()),
+        }
+    }
+
+    /// Save the image, detecting the format from the file extension
+    pub fn save(&self, path: impl AsRef<Path>) -> Result<(), Error> {
+        let path = path.as_ref();
+        fs::write(path, self.encode(ImageFormat::from_path(path)?)?)?;
+        Ok(())
+    }
+
     /// Save the image as PNG
     pub fn save_png(&self, path: impl AsRef<Path>) -> Result<(), Error> {
-        write_png(path.as_ref(), &self.data, self.width, self.height)
+        Ok(fs::write(path, self.to_png()?)?)
     }
 
     /// Save the image as JPEG with the specified quality (1-100)
     pub fn save_jpeg(&self, path: impl AsRef<Path>, quality: u8) -> Result<(), Error> {
-        write_jpeg(path.as_ref(), &self.data, self.width, self.height, quality)
+        Ok(fs::write(path, self.to_jpeg(quality)?)?)
     }
 
     /// Save the image as lossless WebP
     pub fn save_webp(&self, path: impl AsRef<Path>) -> Result<(), Error> {
-        write_webp_lossless(path.as_ref(), &self.data, self.width, self.height)
+        Ok(fs::write(path, self.to_webp())?)
     }
 
     /// Encode the image as PNG bytes
     pub fn to_png(&self) -> Result<Vec<u8>, Error> {
-        encode_png(&self.data, self.width, self.height)
+        // 144 DPI, matching the default 2x scale
+        const PPM: u32 = (144.0 * 39.3701) as u32;
+
+        // Pre-allocate output (PNG is typically 10-50% of raw size after compression)
+        let mut output = Vec::with_capacity(self.data.len() / 4);
+        let mut encoder = png::Encoder::new(&mut output, self.width, self.height);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        encoder.set_compression(png::Compression::Fast);
+        encoder.set_pixel_dims(Some(png::PixelDimensions {
+            xppu: PPM,
+            yppu: PPM,
+            unit: png::Unit::Meter,
+        }));
+        let mut writer = encoder.write_header()?;
+        writer.write_image_data(&self.data)?;
+        writer.finish()?;
+        Ok(output)
     }
 
     /// Encode the image as JPEG bytes with the specified quality (1-100)
     pub fn to_jpeg(&self, quality: u8) -> Result<Vec<u8>, Error> {
-        encode_jpeg(&self.data, self.width, self.height, quality)
+        use zenjpeg::encoder::{ChromaSubsampling, EncoderConfig, PixelLayout, Unstoppable};
+
+        // 4:2:0 chroma subsampling for good compression; alpha is ignored
+        let config = EncoderConfig::ycbcr(quality, ChromaSubsampling::Quarter);
+        let mut encoder =
+            config.encode_from_bytes(self.width, self.height, PixelLayout::Rgba8Srgb)?;
+        encoder.push_packed(&self.data, Unstoppable)?;
+        Ok(encoder.finish()?)
     }
 
     /// Encode the image as lossless WebP bytes
     pub fn to_webp(&self) -> Vec<u8> {
-        encode_webp_lossless(&self.data, self.width, self.height)
+        let encoder = webp::Encoder::from_rgba(&self.data, self.width, self.height);
+        let mut config = webp::WebPConfig::new().unwrap();
+        config.lossless = 1;
+        config.quality = 75.0;
+        config.method = 0; // 0=fastest, 6=slowest (default)
+        encoder.encode_advanced(&config).unwrap().to_vec()
     }
 }
 
@@ -288,33 +377,39 @@ impl RenderedImage {
 /// # }
 /// ```
 pub async fn render(html: &str, options: RenderOptions) -> Result<RenderedImage, Error> {
-    // Create provider for assets and/or network.
-    // Always created so unresolvable requests get empty responses,
-    // preventing Blitz's FOUC prevention from blocking rendering.
-    let provider = Arc::new(CombinedProvider::new(
-        options.assets_dir.clone(),
-        options.allow_net,
-    ));
+    let RenderOptions {
+        width,
+        height,
+        scale,
+        quality,
+        allow_net,
+        assets_dir,
+        base_url,
+        background,
+        verbose: _,
+        fonts,
+        named_fonts,
+    } = options;
 
     // Build base URL for asset resolution
-    let base_url = options.base_url.clone().or_else(|| {
-        options
-            .assets_dir
+    let base_url = base_url.or_else(|| {
+        assets_dir
             .as_ref()
             .and_then(|p| p.canonicalize().ok())
             .or_else(|| std::env::current_dir().ok())
             .map(|p| format!("file://{}/", p.display()))
     });
 
+    // Create provider for assets and/or network.
+    // Always created so unresolvable requests get empty responses,
+    // preventing Blitz's FOUC prevention from blocking rendering.
+    let provider = Arc::new(CombinedProvider::new(assets_dir, allow_net));
+
     // Register custom fonts alongside system fonts
-    let font_ctx = if options.fonts.is_empty() && options.named_fonts.is_empty() {
+    let font_ctx = if fonts.is_empty() && named_fonts.is_empty() {
         None
     } else {
-        Some(build_font_context(
-            &options.fonts,
-            &options.named_fonts,
-            true,
-        )?)
+        Some(build_font_context(&fonts, &named_fonts, true)?)
     };
 
     // Parse document
@@ -333,31 +428,41 @@ pub async fn render(html: &str, options: RenderOptions) -> Result<RenderedImage,
         },
     );
 
-    // Extract meta options and merge with provided options
-    let meta_options = extract_meta_options(document.as_ref());
-    let width = meta_options.width.unwrap_or(options.width);
-    let height = meta_options.height.or(options.height);
-    let scale = meta_options.scale.unwrap_or(options.scale);
+    // Explicit options win over meta tags, which win over defaults
+    let meta = extract_meta_options(document.as_ref());
+    let width = width.or(meta.width).unwrap_or(DEFAULT_WIDTH);
+    let height = height.or(meta.height);
+    let scale = scale.or(meta.scale).unwrap_or(DEFAULT_SCALE);
+    let quality = quality.or(meta.quality).unwrap_or(DEFAULT_QUALITY);
 
+    // Auto height lays out against a provisional 800px viewport, then
+    // renders at the document's content height
     document.set_viewport(Viewport::new(
-        width * (scale as u32),
-        height.unwrap_or(800) * (scale as u32),
+        scaled(width, scale),
+        scaled(height.unwrap_or(800), scale),
         scale,
         ColorScheme::Light,
     ));
 
-    // Render the document
-    let background = options
-        .background
+    let background = background
         .as_deref()
         .map(parse_color)
         .unwrap_or(Color::TRANSPARENT);
 
-    render_document(&mut document, &provider, width, height, scale, background).await
+    let (data, width, height) =
+        render_document(&mut document, &provider, width, height, scale, background).await;
+
+    Ok(RenderedImage {
+        data,
+        width,
+        height,
+        quality,
+    })
 }
 
 /// Render HTML and save directly to a file.
-/// The output format is detected from the file extension.
+/// The output format is detected from the file extension; JPEG gets a white
+/// background unless `options.background` is set.
 ///
 /// # Example
 ///
@@ -367,7 +472,7 @@ pub async fn render(html: &str, options: RenderOptions) -> Result<RenderedImage,
 /// # #[tokio::main]
 /// # async fn main() -> Result<(), dynimg::Error> {
 /// let html = "<html><body><h1>Hello</h1></body></html>";
-/// render_to_file(html, "output.png", RenderOptions::default(), 90).await?;
+/// render_to_file(html, "output.png", RenderOptions::default()).await?;
 /// # Ok(())
 /// # }
 /// ```
@@ -375,34 +480,12 @@ pub async fn render_to_file(
     html: &str,
     path: impl AsRef<Path>,
     options: RenderOptions,
-    quality: u8,
 ) -> Result<(), Error> {
     let path = path.as_ref();
-
-    let ext = path
-        .extension()
-        .and_then(|e| e.to_str())
-        .map(|e| e.to_lowercase());
-
-    // Use white background for JPEG (no transparency support)
-    let options =
-        if matches!(ext.as_deref(), Some("jpg") | Some("jpeg")) && options.background.is_none() {
-            RenderOptions {
-                background: Some("#ffffff".to_string()),
-                ..options
-            }
-        } else {
-            options
-        };
-
-    let image = render(html, options).await?;
-
-    match ext.as_deref() {
-        Some("png") => image.save_png(path),
-        Some("jpg") | Some("jpeg") => image.save_jpeg(path, quality),
-        Some("webp") => image.save_webp(path),
-        _ => image.save_png(path), // Default to PNG
-    }
+    let format = ImageFormat::from_path(path)?;
+    let image = render(html, options.for_format(format)).await?;
+    fs::write(path, image.encode(format)?)?;
+    Ok(())
 }
 
 // ============================================================================
@@ -563,25 +646,14 @@ struct MetaOptions {
 fn extract_meta_options(doc: &BaseDocument) -> MetaOptions {
     let mut options = MetaOptions::default();
     let meta_ids = doc
-        .query_selector_all("meta")
+        .query_selector_all("meta[name][content]")
         .expect("static selector is valid");
 
-    for element in meta_ids
-        .into_iter()
-        .filter_map(|id| doc.get_node(id)?.element_data())
-    {
-        let mut name_value: Option<&str> = None;
-        let mut content_value: Option<&str> = None;
-
-        for attr in element.attrs.iter() {
-            if attr.name.local.eq_str_ignore_ascii_case("name") {
-                name_value = Some(&attr.value);
-            } else if attr.name.local.eq_str_ignore_ascii_case("content") {
-                content_value = Some(&attr.value);
-            }
-        }
-
-        let (Some(name), Some(content)) = (name_value, content_value) else {
+    for node in meta_ids.into_iter().filter_map(|id| doc.get_node(id)) {
+        let (Some(name), Some(content)) = (
+            node.attr(local_name!("name")),
+            node.attr(local_name!("content")),
+        ) else {
             continue;
         };
 
@@ -597,53 +669,38 @@ fn extract_meta_options(doc: &BaseDocument) -> MetaOptions {
     options
 }
 
-/// A NetProvider that serves files from a sandboxed assets directory
+/// A NetProvider that serves `file://` URLs from a sandboxed assets directory
 struct AssetProvider {
-    assets_dir: PathBuf,
+    /// Canonical assets directory, or None if it doesn't exist (every request
+    /// then misses)
+    assets_dir: Option<PathBuf>,
 }
 
 impl AssetProvider {
     fn new(assets_dir: PathBuf) -> Self {
-        Self { assets_dir }
+        Self {
+            assets_dir: assets_dir.canonicalize().ok(),
+        }
     }
 
-    fn resolve_path(&self, url: &str) -> Option<PathBuf> {
-        let path_str = if let Some(stripped) = url.strip_prefix("file://") {
-            stripped
-        } else if url.starts_with("http://") || url.starts_with("https://") {
-            return None;
-        } else {
-            url
-        };
-
-        let requested_path = Path::new(path_str);
-        let full_path = if requested_path.is_absolute() {
-            requested_path.to_path_buf()
-        } else {
-            self.assets_dir.join(requested_path)
-        };
-
-        let canonical = full_path.canonicalize().ok()?;
-        let assets_canonical = self.assets_dir.canonicalize().ok()?;
-
-        if canonical.starts_with(&assets_canonical) {
-            Some(canonical)
-        } else {
-            None
-        }
+    /// The canonical file path for a `file://` URL, if it exists inside the
+    /// assets directory (symlinks and `..` can't escape the sandbox)
+    fn resolve_path(&self, url: &Url) -> Option<PathBuf> {
+        let assets_dir = self.assets_dir.as_ref()?;
+        let path = url.to_file_path().ok()?.canonicalize().ok()?;
+        path.starts_with(assets_dir).then_some(path)
     }
 }
 
 impl NetProvider for AssetProvider {
     fn fetch(&self, _doc_id: usize, request: Request, handler: Box<dyn NetHandler>) {
-        let url = request.url.to_string();
         // Missing or out-of-sandbox files get empty bytes (see CombinedProvider)
         let data = self
-            .resolve_path(&url)
+            .resolve_path(&request.url)
             .and_then(|path| fs::read(path).ok())
             .map(Bytes::from)
             .unwrap_or_default();
-        handler.bytes(url, data);
+        handler.bytes(request.url.to_string(), data);
     }
 }
 
@@ -667,7 +724,7 @@ impl CombinedProvider {
     }
 
     fn is_empty(&self) -> bool {
-        self.network.as_ref().map(|n| n.is_empty()).unwrap_or(true)
+        self.network.as_ref().is_none_or(HttpProvider::is_empty)
     }
 }
 
@@ -701,14 +758,21 @@ impl NetProvider for CombinedProvider {
     }
 }
 
+/// Convert CSS pixels to output pixels
+fn scaled(css_px: u32, scale: f32) -> u32 {
+    (css_px as f64 * scale as f64) as u32
+}
+
+/// Load resources, lay out and paint the document. Returns RGBA pixel data
+/// with its width and height in output pixels.
 async fn render_document(
     document: &mut HtmlDocument,
-    provider: &Arc<CombinedProvider>,
+    provider: &CombinedProvider,
     width: u32,
     height: Option<u32>,
     scale: f32,
     background: Color,
-) -> Result<RenderedImage, Error> {
+) -> (Vec<u8>, u32, u32) {
     // Resolve resource requests
     // Wait for all network requests including cascading requests.
     // CSS stylesheets may trigger font fetches when processed, so we need
@@ -732,11 +796,12 @@ async fn render_document(
     document.as_mut().resolve(0.0);
 
     // Determine final dimensions
-    let computed_height = document.as_ref().root_element().final_layout().size.height;
-    let render_height = height.unwrap_or_else(|| computed_height.ceil() as u32);
-
-    let render_width = (width as f64 * scale as f64) as u32;
-    let render_height_scaled = (render_height as f64 * scale as f64) as u32;
+    let height = height.unwrap_or_else(|| {
+        let content_height = document.as_ref().root_element().final_layout().size.height;
+        content_height.ceil() as u32
+    });
+    let render_width = scaled(width, scale);
+    let render_height = scaled(height, scale);
 
     // Render to RGBA buffer
     let buffer = render_to_buffer::<VelloCpuImageRenderer, _>(
@@ -746,7 +811,7 @@ async fn render_document(
                 Default::default(),
                 background,
                 Default::default(),
-                &Rect::new(0.0, 0.0, render_width as f64, render_height_scaled as f64),
+                &Rect::new(0.0, 0.0, render_width as f64, render_height as f64),
             );
 
             paint_scene(
@@ -754,102 +819,16 @@ async fn render_document(
                 document.as_mut(),
                 scale as f64,
                 render_width,
-                render_height_scaled,
+                render_height,
                 0,
                 0,
             );
         },
         render_width,
-        render_height_scaled,
+        render_height,
     );
 
-    Ok(RenderedImage {
-        data: buffer,
-        width: render_width,
-        height: render_height_scaled,
-    })
-}
-
-// ============================================================================
-// Image encoding functions
-// ============================================================================
-
-fn write_png(path: &Path, buffer: &[u8], width: u32, height: u32) -> Result<(), Error> {
-    let data = encode_png(buffer, width, height)?;
-    fs::write(path, data)?;
-    Ok(())
-}
-
-fn encode_png(buffer: &[u8], width: u32, height: u32) -> Result<Vec<u8>, Error> {
-    const PPM: u32 = (144.0 * 39.3701) as u32;
-
-    // Pre-allocate output (PNG is typically 10-50% of raw size after compression)
-    let mut output = Vec::with_capacity(buffer.len() / 4);
-    {
-        let mut encoder = png::Encoder::new(&mut output, width, height);
-        encoder.set_color(png::ColorType::Rgba);
-        encoder.set_depth(png::BitDepth::Eight);
-        encoder.set_compression(png::Compression::Fast);
-        encoder.set_pixel_dims(Some(png::PixelDimensions {
-            xppu: PPM,
-            yppu: PPM,
-            unit: png::Unit::Meter,
-        }));
-
-        let mut writer = encoder.write_header()?;
-        writer.write_image_data(buffer)?;
-        writer.finish()?;
-    }
-    Ok(output)
-}
-
-fn write_jpeg(
-    path: &Path,
-    buffer: &[u8],
-    width: u32,
-    height: u32,
-    quality: u8,
-) -> Result<(), Error> {
-    let data = encode_jpeg(buffer, width, height, quality)?;
-    fs::write(path, data)?;
-    Ok(())
-}
-
-fn encode_jpeg(buffer: &[u8], width: u32, height: u32, quality: u8) -> Result<Vec<u8>, Error> {
-    use zenjpeg::encoder::{ChromaSubsampling, EncoderConfig, PixelLayout, Unstoppable};
-
-    // Pre-allocate RGB buffer (3 bytes per pixel instead of 4)
-    let pixel_count = (width * height) as usize;
-    let mut rgb_buffer = Vec::with_capacity(pixel_count * 3);
-
-    // Convert RGBA to RGB (drop alpha channel)
-    for chunk in buffer.as_chunks::<4>().0 {
-        rgb_buffer.extend_from_slice(&chunk[..3]);
-    }
-
-    // Use zenjpeg for encoding - quality is 0-100, use 4:2:0 chroma subsampling for good compression
-    let config = EncoderConfig::ycbcr(quality, ChromaSubsampling::Quarter);
-    let mut encoder = config.encode_from_bytes(width, height, PixelLayout::Rgb8Srgb)?;
-    encoder.push_packed(&rgb_buffer, Unstoppable)?;
-    let jpeg = encoder.finish()?;
-
-    Ok(jpeg)
-}
-
-fn write_webp_lossless(path: &Path, buffer: &[u8], width: u32, height: u32) -> Result<(), Error> {
-    let data = encode_webp_lossless(buffer, width, height);
-    fs::write(path, data)?;
-    Ok(())
-}
-
-fn encode_webp_lossless(buffer: &[u8], width: u32, height: u32) -> Vec<u8> {
-    let encoder = webp::Encoder::from_rgba(buffer, width, height);
-    let mut config = webp::WebPConfig::new().unwrap();
-    config.lossless = 1;
-    config.quality = 75.0;
-    config.method = 0; // 0=fastest, 6=slowest (default)
-    let webp_data = encoder.encode_advanced(&config).unwrap();
-    webp_data.to_vec()
+    (buffer, render_width, render_height)
 }
 
 #[cfg(test)]
@@ -1054,6 +1033,108 @@ mod tests {
             ctx.collection.family_by_name("Silkscreen").is_none(),
             "the name inside the font file should be replaced, not added"
         );
+    }
+
+    const RED_BAR: &str = r#"<html><body style="margin:0"><div style="width:100%;height:20px;background:#f00"></div></body></html>"#;
+
+    fn red_px_in_first_row(image: &RenderedImage) -> usize {
+        image.data[..image.width as usize * 4]
+            .chunks(4)
+            .filter(|px| px == &[255, 0, 0, 255])
+            .count()
+    }
+
+    #[tokio::test]
+    async fn fractional_scale_lays_out_full_width() {
+        for scale in [0.5, 1.5, 2.5] {
+            let image = render(RED_BAR, RenderOptions::default().width(300).scale(scale))
+                .await
+                .unwrap();
+            let expected = (300.0 * scale) as u32;
+            assert_eq!(image.width, expected, "scale {scale}");
+            assert_eq!(
+                red_px_in_first_row(&image),
+                expected as usize,
+                "a width:100% bar should span the image at scale {scale}"
+            );
+        }
+    }
+
+    fn with_meta(meta: &str) -> String {
+        format!("<html><head>{meta}</head><body>hi</body></html>")
+    }
+
+    #[tokio::test]
+    async fn meta_tags_apply_when_options_unset() {
+        let html = with_meta(
+            r#"<meta name="dynimg:width" content="400">
+               <meta name="dynimg:height" content="50">
+               <meta name="dynimg:scale" content="1">
+               <meta name="dynimg:quality" content="42">"#,
+        );
+        let image = render(&html, RenderOptions::default()).await.unwrap();
+        assert_eq!((image.width, image.height, image.quality), (400, 50, 42));
+    }
+
+    #[tokio::test]
+    async fn explicit_options_override_meta_tags() {
+        let html = with_meta(
+            r#"<meta name="dynimg:width" content="400">
+               <meta name="dynimg:height" content="50">
+               <meta name="dynimg:scale" content="1">
+               <meta name="dynimg:quality" content="42">"#,
+        );
+        let options = RenderOptions::default()
+            .width(200)
+            .height(30)
+            .scale(2.0)
+            .quality(80);
+        let image = render(&html, options).await.unwrap();
+        assert_eq!((image.width, image.height, image.quality), (400, 60, 80));
+    }
+
+    #[tokio::test]
+    async fn defaults_apply_without_options_or_meta() {
+        let image = render(&with_meta(""), RenderOptions::default().height(10))
+            .await
+            .unwrap();
+        assert_eq!((image.width, image.height, image.quality), (2400, 20, 90));
+    }
+
+    #[test]
+    fn image_format_from_path() {
+        let fmt = |p: &str| ImageFormat::from_path(Path::new(p)).ok();
+        assert_eq!(fmt("a.png"), Some(ImageFormat::Png));
+        assert_eq!(fmt("a.JPG"), Some(ImageFormat::Jpeg));
+        assert_eq!(fmt("a.jpeg"), Some(ImageFormat::Jpeg));
+        assert_eq!(fmt("a.webp"), Some(ImageFormat::WebP));
+        assert_eq!(fmt("a.gif"), None);
+        assert_eq!(fmt("noext"), None);
+    }
+
+    #[test]
+    fn jpeg_defaults_to_white_background() {
+        let jpeg = RenderOptions::default().for_format(ImageFormat::Jpeg);
+        assert_eq!(jpeg.background.as_deref(), Some("#ffffff"));
+        let custom = RenderOptions::default()
+            .background("#000")
+            .for_format(ImageFormat::Jpeg);
+        assert_eq!(custom.background.as_deref(), Some("#000"));
+        let png = RenderOptions::default().for_format(ImageFormat::Png);
+        assert_eq!(png.background, None);
+    }
+
+    #[tokio::test]
+    async fn encode_produces_each_format() {
+        let image = render(RED_BAR, RenderOptions::default().width(10).scale(1.0))
+            .await
+            .unwrap();
+        let png = image.encode(ImageFormat::Png).unwrap();
+        let jpeg = image.encode(ImageFormat::Jpeg).unwrap();
+        let webp = image.encode(ImageFormat::WebP).unwrap();
+        assert!(png.starts_with(b"\x89PNG"));
+        assert!(jpeg.starts_with(&[0xFF, 0xD8]));
+        assert_eq!(&webp[8..12], b"WEBP");
     }
 
     #[test]

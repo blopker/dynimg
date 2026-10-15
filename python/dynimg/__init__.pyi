@@ -5,9 +5,10 @@ from collections.abc import Mapping, Sequence
 class RenderOptions:
     """Options for rendering HTML to an image"""
 
-    width: int
+    width: int | None
     height: int | None
-    scale: float
+    scale: float | None
+    quality: int | None
     allow_net: bool
     assets_dir: str | None
     base_url: str | None
@@ -17,9 +18,10 @@ class RenderOptions:
     def __init__(
         self,
         *,
-        width: int = 1200,
+        width: int | None = None,
         height: int | None = None,
-        scale: float = 2.0,
+        scale: float | None = None,
+        quality: int | None = None,
         allow_net: bool = False,
         assets_dir: str | None = None,
         base_url: str | None = None,
@@ -35,11 +37,17 @@ class RenderOptions:
             width: Viewport width in CSS pixels (default: 1200)
             height: Viewport height in CSS pixels (default: auto-sizes to content)
             scale: Scale factor for output resolution (default: 2.0 for retina)
+            quality: JPEG quality 1-100 (default: 90)
+
+            width, height, scale and quality can also be set by the page with
+            <meta name="dynimg:..."> tags. Values passed here take precedence
+            over meta tags; unset values (None) fall back to the meta tag, then
+            the default.
             allow_net: Allow network requests for remote resources
             assets_dir: Directory for loading local assets
             base_url: Base URL for resolving relative paths
             background: Background color as any CSS color, e.g. "#ffffff" or "white" (default: transparent)
-            verbose: Enable verbose output (default: False). When True, dependency output is forwarded to stderr.
+            verbose: Reserved for future diagnostic output; currently has no effect.
             fonts: Custom font files (TTF/OTF/WOFF/WOFF2). Pass one path,
                 a list of paths, a mapping of CSS name -> path, or a list
                 mixing paths and mappings. Files are read at render time;
@@ -84,8 +92,13 @@ class Image:
     def save_png(self, path: str) -> None:
         """Save the image as PNG"""
 
-    def save_jpeg(self, path: str, quality: int = 90) -> None:
-        """Save the image as JPEG with the specified quality (1-100)"""
+    @property
+    def quality(self) -> int:
+        """JPEG quality resolved from the render options or the page's
+        dynimg:quality meta tag (default 90)"""
+
+    def save_jpeg(self, path: str, quality: int | None = None) -> None:
+        """Save the image as JPEG (quality 1-100, default: the image's quality)"""
 
     def save_webp(self, path: str) -> None:
         """Save the image as lossless WebP"""
@@ -93,8 +106,8 @@ class Image:
     def to_png(self) -> bytes:
         """Encode the image as PNG bytes"""
 
-    def to_jpeg(self, quality: int = 90) -> bytes:
-        """Encode the image as JPEG bytes with the specified quality (1-100)"""
+    def to_jpeg(self, quality: int | None = None) -> bytes:
+        """Encode the image as JPEG bytes (quality 1-100, default: the image's quality)"""
 
     def to_webp(self) -> bytes:
         """Encode the image as lossless WebP bytes"""
@@ -121,7 +134,7 @@ def render_to_file(
     html: str,
     path: str,
     options: RenderOptions | None = None,
-    quality: int = 90,
+    quality: int | None = None,
 ) -> None:
     """
     Render HTML and save directly to a file.
@@ -132,7 +145,9 @@ def render_to_file(
         html: The HTML content to render
         path: Output file path (.png, .jpg, .webp)
         options: Rendering options (optional)
-        quality: JPEG quality 1-100 (default: 90, ignored for PNG/WebP)
+        quality: JPEG quality 1-100, overriding options.quality (default:
+            options.quality, then the dynimg:quality meta tag, then 90;
+            ignored for PNG/WebP)
 
     Example:
         >>> import dynimg

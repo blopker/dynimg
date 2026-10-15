@@ -1,25 +1,55 @@
 //! Python bindings for dynimg
 
-use crate::{RenderOptions as RustRenderOptions, RenderedImage, render as rust_render};
+use crate::{Error, RenderOptions as RustRenderOptions, RenderedImage, render as rust_render};
+use pyo3::exceptions::{PyIOError, PyRuntimeError};
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use std::path::PathBuf;
+
+impl From<Error> for PyErr {
+    fn from(err: Error) -> Self {
+        match err {
+            Error::Io(_) => PyIOError::new_err(err.to_string()),
+            _ => PyRuntimeError::new_err(err.to_string()),
+        }
+    }
+}
+
+/// Run an async render on a fresh runtime with the GIL released, so other
+/// Python threads aren't blocked. Concurrent renders are safe: style
+/// resolution runs sequentially per document (StyleThreading::Sequential in
+/// lib.rs). Takes a closure because render futures aren't `Send`, so they
+/// must be created on the thread that runs them.
+fn block_on<T: Send, Fut: Future<Output = Result<T, Error>>>(
+    py: Python<'_>,
+    make_future: impl FnOnce() -> Fut + Send,
+) -> PyResult<T> {
+    py.detach(|| {
+        let rt = tokio::runtime::Runtime::new()?;
+        Ok(rt.block_on(make_future())?)
+    })
+}
 
 /// Options for rendering HTML to an image
 #[pyclass(from_py_object)]
 #[derive(Clone)]
 pub struct RenderOptions {
-    /// Viewport width in CSS pixels (default: 1200)
+    /// Viewport width in CSS pixels (default: meta tag, then 1200)
     #[pyo3(get, set)]
-    pub width: u32,
+    pub width: Option<u32>,
 
     /// Viewport height in CSS pixels. If None, auto-sizes to content height.
     #[pyo3(get, set)]
     pub height: Option<u32>,
 
-    /// Scale factor for output resolution (default: 2.0 for retina displays).
+    /// Scale factor for output resolution (default: meta tag, then 2.0 for
+    /// retina displays).
     #[pyo3(get, set)]
-    pub scale: f32,
+    pub scale: Option<f32>,
+
+    /// JPEG quality 1-100 (default: meta tag, then 90)
+    #[pyo3(get, set)]
+    pub quality: Option<u8>,
 
     /// Allow network requests for loading remote resources
     #[pyo3(get, set)]
@@ -37,7 +67,7 @@ pub struct RenderOptions {
     #[pyo3(get, set)]
     pub background: Option<String>,
 
-    /// Enable verbose output. When false (default), dependency output is suppressed.
+    /// Reserved for future diagnostic output; currently has no effect.
     #[pyo3(get, set)]
     pub verbose: bool,
 
@@ -74,12 +104,13 @@ enum FontListEntry {
 #[pymethods]
 impl RenderOptions {
     #[new]
-    #[pyo3(signature = (*, width=1200, height=None, scale=2.0, allow_net=false, assets_dir=None, base_url=None, background=None, verbose=false, fonts=None))]
+    #[pyo3(signature = (*, width=None, height=None, scale=None, quality=None, allow_net=false, assets_dir=None, base_url=None, background=None, verbose=false, fonts=None))]
     #[allow(clippy::too_many_arguments)]
     fn new(
-        width: u32,
+        width: Option<u32>,
         height: Option<u32>,
-        scale: f32,
+        scale: Option<f32>,
+        quality: Option<u8>,
         allow_net: bool,
         assets_dir: Option<String>,
         base_url: Option<String>,
@@ -107,6 +138,7 @@ impl RenderOptions {
             width,
             height,
             scale,
+            quality,
             allow_net,
             assets_dir,
             base_url,
@@ -119,10 +151,11 @@ impl RenderOptions {
 
     fn __repr__(&self) -> String {
         format!(
-            "RenderOptions(width={}, height={:?}, scale={}, allow_net={}, assets_dir={:?}, background={:?}, verbose={}, fonts=<{} font(s), {} named>)",
+            "RenderOptions(width={:?}, height={:?}, scale={:?}, quality={:?}, allow_net={}, assets_dir={:?}, background={:?}, verbose={}, fonts=<{} font(s), {} named>)",
             self.width,
             self.height,
             self.scale,
+            self.quality,
             self.allow_net,
             self.assets_dir,
             self.background,
@@ -139,6 +172,7 @@ impl From<RenderOptions> for RustRenderOptions {
             width: opts.width,
             height: opts.height,
             scale: opts.scale,
+            quality: opts.quality,
             allow_net: opts.allow_net,
             assets_dir: opts.assets_dir.map(PathBuf::from),
             base_url: opts.base_url,
@@ -180,51 +214,45 @@ impl Image {
         PyBytes::new(py, &self.inner.data)
     }
 
-    /// Save the image as PNG
-    fn save_png(&self, path: &str) -> PyResult<()> {
-        self.inner
-            .save_png(path)
-            .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
+    /// JPEG quality resolved from the render options or the page's
+    /// `dynimg:quality` meta tag (default 90)
+    #[getter]
+    fn quality(&self) -> u8 {
+        self.inner.quality
     }
 
-    /// Save the image as JPEG with the specified quality (1-100)
-    #[pyo3(signature = (path, quality=90))]
-    fn save_jpeg(&self, path: &str, quality: u8) -> PyResult<()> {
-        self.inner
-            .save_jpeg(path, quality)
-            .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
+    /// Save the image as PNG
+    fn save_png(&self, path: &str) -> PyResult<()> {
+        Ok(self.inner.save_png(path)?)
+    }
+
+    /// Save the image as JPEG (quality 1-100, default: the image's quality)
+    #[pyo3(signature = (path, quality=None))]
+    fn save_jpeg(&self, path: &str, quality: Option<u8>) -> PyResult<()> {
+        let quality = quality.unwrap_or(self.inner.quality);
+        Ok(self.inner.save_jpeg(path, quality)?)
     }
 
     /// Save the image as lossless WebP
     fn save_webp(&self, path: &str) -> PyResult<()> {
-        self.inner
-            .save_webp(path)
-            .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
+        Ok(self.inner.save_webp(path)?)
     }
 
     /// Encode the image as PNG bytes
     fn to_png<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
-        let data = self
-            .inner
-            .to_png()
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        Ok(PyBytes::new(py, &data))
+        Ok(PyBytes::new(py, &self.inner.to_png()?))
     }
 
-    /// Encode the image as JPEG bytes with the specified quality (1-100)
-    #[pyo3(signature = (quality=90))]
-    fn to_jpeg<'py>(&self, py: Python<'py>, quality: u8) -> PyResult<Bound<'py, PyBytes>> {
-        let data = self
-            .inner
-            .to_jpeg(quality)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        Ok(PyBytes::new(py, &data))
+    /// Encode the image as JPEG bytes (quality 1-100, default: the image's quality)
+    #[pyo3(signature = (quality=None))]
+    fn to_jpeg<'py>(&self, py: Python<'py>, quality: Option<u8>) -> PyResult<Bound<'py, PyBytes>> {
+        let quality = quality.unwrap_or(self.inner.quality);
+        Ok(PyBytes::new(py, &self.inner.to_jpeg(quality)?))
     }
 
     /// Encode the image as lossless WebP bytes
     fn to_webp<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
-        let data = self.inner.to_webp();
-        PyBytes::new(py, &data)
+        PyBytes::new(py, &self.inner.to_webp())
     }
 
     fn __repr__(&self) -> String {
@@ -253,21 +281,8 @@ impl Image {
 #[pyo3(signature = (html, options=None))]
 fn render(py: Python<'_>, html: &str, options: Option<RenderOptions>) -> PyResult<Image> {
     let opts: RustRenderOptions = options.map(Into::into).unwrap_or_default();
-
-    // Release GIL during rendering so other Python threads aren't blocked.
-    // Concurrent renders are safe: style resolution runs sequentially per
-    // document (StyleThreading::Sequential in lib.rs).
-    py.detach(|| {
-        let rt = tokio::runtime::Runtime::new()
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
-
-        let result = rt.block_on(rust_render(html, opts));
-
-        match result {
-            Ok(image) => Ok(Image { inner: image }),
-            Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    })
+    let inner = block_on(py, || rust_render(html, opts))?;
+    Ok(Image { inner })
 }
 
 /// Render HTML and save directly to a file.
@@ -277,34 +292,25 @@ fn render(py: Python<'_>, html: &str, options: Option<RenderOptions>) -> PyResul
 ///     html: The HTML content to render
 ///     path: Output file path (.png, .jpg, .webp)
 ///     options: Rendering options (optional)
-///     quality: JPEG/WebP quality 1-100 (default: 90)
+///     quality: JPEG quality 1-100, overriding options.quality (default:
+///         options.quality, then the dynimg:quality meta tag, then 90)
 ///
 /// Example:
 ///     >>> import dynimg
 ///     >>> html = '<html><body><h1>Hello</h1></body></html>'
 ///     >>> dynimg.render_to_file(html, "output.png")
 #[pyfunction]
-#[pyo3(signature = (html, path, options=None, quality=90))]
+#[pyo3(signature = (html, path, options=None, quality=None))]
 fn render_to_file(
     py: Python<'_>,
     html: &str,
     path: &str,
     options: Option<RenderOptions>,
-    quality: u8,
+    quality: Option<u8>,
 ) -> PyResult<()> {
-    let opts: RustRenderOptions = options.map(Into::into).unwrap_or_default();
-
-    py.detach(|| {
-        let rt = tokio::runtime::Runtime::new()
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
-
-        let result = rt.block_on(crate::render_to_file(html, path, opts, quality));
-
-        match result {
-            Ok(()) => Ok(()),
-            Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(e.to_string())),
-        }
-    })
+    let mut opts: RustRenderOptions = options.map(Into::into).unwrap_or_default();
+    opts.quality = quality.or(opts.quality);
+    block_on(py, || crate::render_to_file(html, path, opts))
 }
 
 /// Python module

@@ -26,10 +26,10 @@ Download the appropriate wheel for your system:
 
 | Platform | Artifact Name |
 |----------|---------------|
-| Linux x86_64 | `wheel-linux-x86_64` |
-| Linux ARM64 | `wheel-linux-aarch64` |
-| macOS x86_64 | `wheel-macos-x86_64` |
-| macOS ARM64 | `wheel-macos-aarch64` |
+| Linux x86_64 | `wheels-linux-x86_64` |
+| Linux ARM64 | `wheels-linux-aarch64` |
+| macOS x86_64 | `wheels-macos-x86_64` |
+| macOS ARM64 | `wheels-macos-aarch64` |
 
 ## Using gh CLI
 
@@ -38,7 +38,7 @@ Download the appropriate wheel for your system:
 gh run list --workflow=ci.yml
 
 # Download artifacts from a specific run
-gh run download <RUN_ID> -n wheel-linux-x86_64
+gh run download <RUN_ID> -n wheels-linux-x86_64
 
 # Or download all wheels
 gh run download <RUN_ID>

@@ -306,6 +306,33 @@ def test_custom_fonts():
     return True
 
 
+
+def test_meta_tag_precedence():
+    """Meta tags apply when options are unset; explicit options win."""
+    import dynimg
+
+    html = """<html><head>
+        <meta name="dynimg:width" content="40">
+        <meta name="dynimg:height" content="20">
+        <meta name="dynimg:scale" content="1">
+        <meta name="dynimg:quality" content="42">
+    </head><body></body></html>"""
+
+    img = dynimg.render(html)
+    assert (img.width, img.height, img.quality) == (40, 20, 42), (
+        f"meta tags not applied: {img.width}x{img.height} q{img.quality}"
+    )
+
+    opts = dynimg.RenderOptions(width=30, scale=2.0, quality=80)
+    assert opts.height is None and opts.width == 30
+    img = dynimg.render(html, opts)
+    assert (img.width, img.height, img.quality) == (60, 40, 80), (
+        f"options should override meta: {img.width}x{img.height} q{img.quality}"
+    )
+    assert img.to_jpeg()[:2] == b"\xff\xd8"
+    return True
+
+
 def main():
     """Run all tests."""
     OUTPUT_DIR.mkdir(exist_ok=True)
@@ -318,6 +345,7 @@ def main():
         ("To Bytes", test_to_bytes),
         ("Render to File", test_render_to_file),
         ("Custom Fonts", test_custom_fonts),
+        ("Meta Tag Precedence", test_meta_tag_precedence),
     ]
 
     print("=" * 50)
