@@ -848,7 +848,7 @@ fn encode_jpeg(buffer: &[u8], width: u32, height: u32, quality: u8) -> Result<Ve
     let mut rgb_buffer = Vec::with_capacity(pixel_count * 3);
 
     // Convert RGBA to RGB (drop alpha channel)
-    for chunk in buffer.chunks_exact(4) {
+    for chunk in buffer.as_chunks::<4>().0 {
         rgb_buffer.extend_from_slice(&chunk[..3]);
     }
 
