@@ -521,7 +521,7 @@ dynimg is designed for speed: no browser, a native Rust rendering pipeline, and 
 
 In a long-running process (a server or Python worker), the example templates render in 1–4ms each, plus 1–5ms of PNG encoding for a 2400px-wide image (measured on an Apple M5 Max). Pages that fetch remote resources also wait for the network.
 
-The first render in a process also discovers the system's fonts, which takes roughly 10–80ms; later renders reuse that list. Fonts installed on the host after the first render are picked up after a restart. Fonts passed through `fonts` / `--font` are read on every render and never shared between renders.
+The first render in a process also discovers the system's fonts, which takes roughly 10–80ms on the same machine; later renders reuse that list. Fonts installed on the host after the first render are picked up after a restart. Fonts passed through `fonts` / `--font` are read on every render and never shared between renders.
 
 The CLI renders once per process, so each invocation pays that startup cost.
 

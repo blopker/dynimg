@@ -15,8 +15,11 @@ test: lint dev
 	.venv/bin/python test_wheels/test_threading.py
 	./scripts/snapshot-tests.sh
 
+# Regenerates the shared baselines and the macOS system-fonts baseline here,
+# then the Linux system-fonts baseline in a CI-matching container (needs Docker)
 update_snapshot:
 	./scripts/snapshot-tests.sh --update
+	./scripts/linux-snapshots.sh --update
 
 # Run lints
 lint:

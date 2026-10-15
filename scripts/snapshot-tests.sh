@@ -203,7 +203,7 @@ snapshot_test "quote" png "$EXAMPLES_DIR/quote.html"
 
 echo ""
 echo "--- System Fonts (per-OS baseline: no font pinning, host fonts differ) ---"
-snapshot_test_os "system-fonts" png "$EXAMPLES_DIR/system-fonts.html" -w 500 -H 260
+snapshot_test_os "system-fonts" png "$EXAMPLES_DIR/system-fonts.html" -w 500
 
 echo ""
 echo "=== Results ==="
