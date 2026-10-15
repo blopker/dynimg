@@ -6,6 +6,7 @@
 //! Rust and the manylinux wheel builds self-contained.
 
 use blitz_traits::net::{NetHandler, NetProvider, Request};
+use bytes::Bytes;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -77,9 +78,10 @@ impl NetProvider for HttpProvider {
                 .await
                 .expect("per-host semaphore was closed");
 
+            let request_url = request.url.to_string();
             let result = async {
                 let response = client
-                    .request(request.method, request.url.clone())
+                    .request(request.method, request.url)
                     .headers(request.headers)
                     .send()
                     .await?
@@ -90,11 +92,10 @@ impl NetProvider for HttpProvider {
             }
             .await;
 
-            // Failed resources get no response; they render as missing,
-            // matching blitz-net's behavior.
-            if let Ok((url, bytes)) = result {
-                handler.bytes(url, bytes);
-            }
+            // Failed resources get empty bytes rather than no response, so
+            // they render as missing instead of blocking the render forever.
+            let (url, bytes) = result.unwrap_or_else(|_| (request_url, Bytes::new()));
+            handler.bytes(url, bytes);
         });
     }
 }

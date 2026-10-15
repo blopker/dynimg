@@ -38,7 +38,7 @@ class RenderOptions:
             allow_net: Allow network requests for remote resources
             assets_dir: Directory for loading local assets
             base_url: Base URL for resolving relative paths
-            background: Background color as CSS hex string, e.g. "#ffffff" (default: transparent)
+            background: Background color as any CSS color, e.g. "#ffffff" or "white" (default: transparent)
             verbose: Enable verbose output (default: False). When True, dependency output is forwarded to stderr.
             fonts: Custom font files (TTF/OTF/WOFF/WOFF2). Pass one path,
                 a list of paths, a mapping of CSS name -> path, or a list

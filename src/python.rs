@@ -33,7 +33,7 @@ pub struct RenderOptions {
     #[pyo3(get, set)]
     pub base_url: Option<String>,
 
-    /// Background color as CSS hex string (e.g. "#ffffff"). Default: transparent.
+    /// Background color as any CSS color (e.g. "#ffffff", "white"). Default: transparent.
     #[pyo3(get, set)]
     pub background: Option<String>,
 

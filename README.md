@@ -90,7 +90,7 @@ let options = RenderOptions::default()
     .scale(2.0)
     .allow_net()
     .assets_dir("./assets")
-    .background("#ffffff")  // CSS hex color (default: transparent)
+    .background("#ffffff")  // Any CSS color (default: transparent)
     .verbose()              // Show dependency output on stderr
     .font_file("./fonts/Inter-Regular.ttf");  // Custom font (TTF/OTF/WOFF/WOFF2)
 
@@ -341,7 +341,7 @@ options = dynimg.RenderOptions(
     allow_net=True,      # Allow network requests (default: False)
     assets_dir="./assets",  # Local assets directory (default: None)
     base_url="https://example.com",  # Base URL for relative URLs (default: None)
-    background="#ffffff",  # CSS hex color (default: transparent)
+    background="#ffffff",  # Any CSS color (default: transparent)
     verbose=False,       # Show dependency output on stderr (default: False)
     # Custom fonts: file paths or {css_name: path} mappings (default: None)
     fonts=["./fonts/Inter-Variable.ttf", {"emoji": "./fonts/TwemojiCOLRv0.ttf"}],

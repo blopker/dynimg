@@ -95,7 +95,8 @@ pub struct RenderOptions {
     /// Base URL for resolving relative paths. If None, uses assets_dir or current directory.
     pub base_url: Option<String>,
 
-    /// Background color as a CSS hex string, e.g. "#ffffff" (default: transparent).
+    /// Background color as any CSS color, e.g. "#ffffff", "white" or
+    /// "rgb(0 0 0 / 50%)" (default: transparent). Invalid colors are transparent.
     /// Automatically set to white for JPEG output via CLI and `render_to_file()`.
     pub background: Option<String>,
 
@@ -198,7 +199,7 @@ impl RenderOptions {
         self
     }
 
-    /// Set the background color as a CSS hex string, e.g. "#ffffff" (default: transparent)
+    /// Set the background color as any CSS color, e.g. "#ffffff" or "white" (default: transparent)
     pub fn background(mut self, color: impl Into<String>) -> Self {
         self.background = Some(color.into());
         self
@@ -349,7 +350,7 @@ pub async fn render(html: &str, options: RenderOptions) -> Result<RenderedImage,
     let background = options
         .background
         .as_deref()
-        .map(parse_hex_color)
+        .map(parse_color)
         .unwrap_or(Color::TRANSPARENT);
 
     render_document(&mut document, &provider, width, height, scale, background).await
@@ -408,31 +409,12 @@ pub async fn render_to_file(
 // Internal implementation
 // ============================================================================
 
-/// Parse a CSS hex color string (e.g. "#ffffff" or "#fff") to a Color.
+/// Parse a CSS color ("#fff", "white", "rgb(0 0 0 / 50%)", ...) to a Color.
 /// Falls back to transparent if parsing fails.
-fn parse_hex_color(s: &str) -> Color {
-    let s = s.trim().trim_start_matches('#');
-
-    let (r, g, b) = match s.len() {
-        // #rgb format
-        3 => {
-            let r = u8::from_str_radix(&s[0..1], 16).unwrap_or(0);
-            let g = u8::from_str_radix(&s[1..2], 16).unwrap_or(0);
-            let b = u8::from_str_radix(&s[2..3], 16).unwrap_or(0);
-            (r * 17, g * 17, b * 17) // Expand #rgb to #rrggbb
-        }
-        // #rrggbb format
-        6 => {
-            let r = u8::from_str_radix(&s[0..2], 16).unwrap_or(0);
-            let g = u8::from_str_radix(&s[2..4], 16).unwrap_or(0);
-            let b = u8::from_str_radix(&s[4..6], 16).unwrap_or(0);
-            (r, g, b)
-        }
-        _ => return Color::TRANSPARENT,
-    };
-
-    // Color components are f32 in 0.0-1.0 range
-    Color::new([r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, 1.0])
+fn parse_color(s: &str) -> Color {
+    peniko::color::parse_color(s.trim())
+        .map(|c| c.to_alpha_color())
+        .unwrap_or(Color::TRANSPARENT)
 }
 
 /// Build a font context with the given custom fonts registered on top of
@@ -655,15 +637,22 @@ impl AssetProvider {
 impl NetProvider for AssetProvider {
     fn fetch(&self, _doc_id: usize, request: Request, handler: Box<dyn NetHandler>) {
         let url = request.url.to_string();
-        if let Some(path) = self.resolve_path(&url)
-            && let Ok(data) = fs::read(&path)
-        {
-            handler.bytes(url, Bytes::from(data));
-        }
+        // Missing or out-of-sandbox files get empty bytes (see CombinedProvider)
+        let data = self
+            .resolve_path(&url)
+            .and_then(|path| fs::read(path).ok())
+            .map(Bytes::from)
+            .unwrap_or_default();
+        handler.bytes(url, data);
     }
 }
 
-/// Combined provider for data URIs, assets, and network requests
+/// Combined provider for data URIs, assets, and network requests.
+///
+/// Every request gets a response, with empty bytes when the resource can't be
+/// loaded. Blitz's `NetHandler` has no failure callback, and it blocks style,
+/// layout and paint until render-blocking resources (e.g. `<head>`
+/// stylesheets) respond, so a dropped request would render nothing.
 struct CombinedProvider {
     assets: Option<AssetProvider>,
     network: Option<HttpProvider>,
@@ -687,8 +676,7 @@ impl NetProvider for CombinedProvider {
         let scheme = request.url.scheme();
 
         // Inline data: URIs are self-contained; decode them regardless of
-        // asset/network settings. Undecodable ones get empty bytes so the
-        // critical resource tracker is cleared.
+        // asset/network settings.
         if scheme == "data" {
             let decoded = DataUrl::process(request.url.as_str())
                 .ok()
@@ -700,19 +688,15 @@ impl NetProvider for CombinedProvider {
         }
 
         // Non-HTTP(S) URLs (e.g. file://) are local resources that need the assets provider
-        if scheme != "http" && scheme != "https" {
-            if let Some(ref assets) = self.assets {
-                assets.fetch(doc_id, request, handler);
-            } else {
-                // Respond with empty bytes so Blitz's critical resource tracker
-                // gets cleared (prevents blank renders from FOUC prevention)
-                handler.bytes(request.url.to_string(), Bytes::new());
-            }
-            return;
-        }
+        let provider: Option<&dyn NetProvider> = if scheme == "http" || scheme == "https" {
+            self.network.as_ref().map(|n| n as _)
+        } else {
+            self.assets.as_ref().map(|a| a as _)
+        };
 
-        if let Some(ref network) = self.network {
-            network.fetch(doc_id, request, handler);
+        match provider {
+            Some(provider) => provider.fetch(doc_id, request, handler),
+            None => handler.bytes(request.url.to_string(), Bytes::new()),
         }
     }
 }
@@ -1070,5 +1054,58 @@ mod tests {
             ctx.collection.family_by_name("Silkscreen").is_none(),
             "the name inside the font file should be replaced, not added"
         );
+    }
+
+    #[test]
+    fn background_accepts_css_colors() {
+        let rgba = |s| parse_color(s).to_rgba8().to_u8_array();
+        assert_eq!(rgba("#fff"), [255, 255, 255, 255]);
+        assert_eq!(rgba("#ff000080"), [255, 0, 0, 128]);
+        assert_eq!(rgba("white"), [255, 255, 255, 255]);
+        assert_eq!(rgba("rgb(0, 128, 255)"), [0, 128, 255, 255]);
+        assert_eq!(rgba("not a color"), [0, 0, 0, 0]);
+    }
+
+    /// Renders a 200x100 red box behind a render-blocking stylesheet that
+    /// can never load, and checks the box still paints at full size.
+    async fn render_with_unloadable_stylesheet(href: &str, options: RenderOptions) {
+        let html = format!(
+            r#"<html><head><link rel="stylesheet" href="{href}"></head>
+            <body style="margin:0"><div style="width:200px;height:100px;background:#f00"></div></body></html>"#
+        );
+        let image = render(&html, options.width(200).scale(1.0))
+            .await
+            .unwrap_or_else(|e| panic!("render with stylesheet {href} failed: {e}"));
+        assert_eq!((image.width, image.height), (200, 100), "href: {href}");
+        assert_eq!(&image.data[..4], &[255, 0, 0, 255], "href: {href}");
+    }
+
+    #[tokio::test]
+    async fn remote_stylesheet_without_network_does_not_block_render() {
+        render_with_unloadable_stylesheet(
+            "https://example.invalid/x.css",
+            RenderOptions::default(),
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn missing_asset_stylesheet_does_not_block_render() {
+        let assets = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/examples/assets"));
+        render_with_unloadable_stylesheet(
+            "missing.css",
+            RenderOptions::default().assets_dir(assets),
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn failed_fetch_stylesheet_does_not_block_render() {
+        // Port 9 (discard) on loopback refuses the connection immediately
+        render_with_unloadable_stylesheet(
+            "http://127.0.0.1:9/x.css",
+            RenderOptions::default().allow_net(),
+        )
+        .await;
     }
 }
