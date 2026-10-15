@@ -19,15 +19,15 @@ Example:
 """
 
 from dynimg._dynimg import (
-    RenderOptions,
     Image,
+    RenderOptions,
     render,
     render_to_file,
 )
 
 __all__ = [
-    "RenderOptions",
     "Image",
+    "RenderOptions",
     "render",
     "render_to_file",
 ]

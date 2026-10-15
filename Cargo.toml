@@ -27,34 +27,31 @@ pyo3 = { version = "0.29", features = ["extension-module", "abi3-py311"], option
 
 
 # Blitz rendering engine (from git - matches example.rs)
-blitz-dom = { git = "https://github.com/DioxusLabs/blitz.git", rev = "4c54f2af7b0e388c31f361c42cf7712b601664f0", features = [
+blitz-dom = { git = "https://github.com/DioxusLabs/blitz.git", rev = "e72650a6e67941852fddf025295cfee30c39ea32", features = [
   "tracing",
   # CSS float layout (opt-in upstream; several float fixes landed mid-2026)
   "floats",
 ] }
-blitz-html = { git = "https://github.com/DioxusLabs/blitz.git", rev = "4c54f2af7b0e388c31f361c42cf7712b601664f0" }
-blitz-paint = { git = "https://github.com/DioxusLabs/blitz.git", rev = "4c54f2af7b0e388c31f361c42cf7712b601664f0" }
-blitz-traits = { git = "https://github.com/DioxusLabs/blitz.git", rev = "4c54f2af7b0e388c31f361c42cf7712b601664f0" }
+blitz-html = { git = "https://github.com/DioxusLabs/blitz.git", rev = "e72650a6e67941852fddf025295cfee30c39ea32" }
+blitz-paint = { git = "https://github.com/DioxusLabs/blitz.git", rev = "e72650a6e67941852fddf025295cfee30c39ea32" }
+blitz-traits = { git = "https://github.com/DioxusLabs/blitz.git", rev = "e72650a6e67941852fddf025295cfee30c39ea32" }
 
 # Anyrender - use the same version blitz uses (from crates.io)
-anyrender = "0.11"
-anyrender_vello_cpu = "0.14"
+anyrender = "0.14"
+anyrender_vello_cpu = "0.18"
 # Enable png feature for color emoji (SBIX bitmap) support - anyrender_vello_cpu doesn't enable it
-vello_cpu = { version = "0.0.9", default-features = false, features = ["png"] }
+vello_cpu = { version = "0.3", default-features = false, features = ["png"] }
 
 # Graphics primitives - use the same versions anyrender uses
 peniko = "0.6"
 kurbo = "0.13"
 
-# Font enumeration (same git rev as the parley patch below, so it unifies with
-# blitz's parley). Direct dep for two reasons: the fontconfig-dlopen feature
-# makes libfontconfig a runtime dlopen instead of a link-time dependency (so
-# Linux wheels don't require fontconfig/libexpat on the host), and we need
-# GenericFamily to map custom fonts as generic-family fallbacks when no system
-# fonts are available.
-fontique = { git = "https://github.com/linebender/parley", rev = "eccfebb22ebfa0a9f70c30c3465089aa46e7beb0", features = [
-  "fontconfig-dlopen",
-] }
+# Font enumeration (same version as blitz's parley's fontique, so they unify).
+# Direct dep for two reasons: the fontconfig-dlopen feature makes libfontconfig
+# a runtime dlopen instead of a link-time dependency (so Linux wheels don't
+# require fontconfig/libexpat on the host), and we need GenericFamily to map
+# custom fonts as generic-family fallbacks when no system fonts are available.
+fontique = { version = "0.12", features = ["fontconfig-dlopen"] }
 
 # CLI
 clap = { version = "4", features = ["derive"] }
@@ -91,13 +88,6 @@ bytes = "1"
 [profile.release]
 lto = "thin"
 strip = true
-
-# Pin parley to git main for the emoji + variation-selector (VS16) fix (PR #637),
-# which landed after the 0.10.0 release that blitz depends on. Without it, any
-# emoji followed by U+FE0F (e.g. ❤️, ⚠️) renders as a missing-glyph box.
-# Remove once a parley release > 0.10.0 with this fix is published and blitz uses it.
-[patch.crates-io]
-parley = { git = "https://github.com/linebender/parley", rev = "eccfebb22ebfa0a9f70c30c3465089aa46e7beb0" }
 
 [dev-dependencies]
 zensim = "0.2.7"

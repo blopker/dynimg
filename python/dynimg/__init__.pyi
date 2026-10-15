@@ -1,37 +1,34 @@
 """Type stubs for dynimg"""
 
-from typing import Mapping, Optional, Sequence, Union
+from collections.abc import Mapping, Sequence
 
 class RenderOptions:
     """Options for rendering HTML to an image"""
 
     width: int
-    height: Optional[int]
+    height: int | None
     scale: float
     allow_net: bool
-    assets_dir: Optional[str]
-    base_url: Optional[str]
-    background: Optional[str]
+    assets_dir: str | None
+    base_url: str | None
+    background: str | None
     verbose: bool
 
     def __init__(
         self,
         *,
         width: int = 1200,
-        height: Optional[int] = None,
+        height: int | None = None,
         scale: float = 2.0,
         allow_net: bool = False,
-        assets_dir: Optional[str] = None,
-        base_url: Optional[str] = None,
-        background: Optional[str] = None,
+        assets_dir: str | None = None,
+        base_url: str | None = None,
+        background: str | None = None,
         verbose: bool = False,
-        fonts: Optional[
-            Union[
-                str,
-                Mapping[str, str],
-                Sequence[Union[str, Mapping[str, str]]],
-            ]
-        ] = None,
+        fonts: str
+        | Mapping[str, str]
+        | Sequence[str | Mapping[str, str]]
+        | None = None,
     ) -> None:
         """
         Args:
@@ -68,7 +65,6 @@ class RenderOptions:
                 Example: fonts=["./Body.ttf", {"sans-serif": "./Inter.ttf",
                 "emoji": "./Twemoji.ttf", "brand": "./Custom.ttf"}]
         """
-        ...
 
 class Image:
     """A rendered image with RGBA pixel data"""
@@ -76,43 +72,34 @@ class Image:
     @property
     def width(self) -> int:
         """Image width in pixels"""
-        ...
 
     @property
     def height(self) -> int:
         """Image height in pixels"""
-        ...
 
     @property
     def data(self) -> bytes:
         """Raw RGBA pixel data"""
-        ...
 
     def save_png(self, path: str) -> None:
         """Save the image as PNG"""
-        ...
 
     def save_jpeg(self, path: str, quality: int = 90) -> None:
         """Save the image as JPEG with the specified quality (1-100)"""
-        ...
 
     def save_webp(self, path: str) -> None:
         """Save the image as lossless WebP"""
-        ...
 
     def to_png(self) -> bytes:
         """Encode the image as PNG bytes"""
-        ...
 
     def to_jpeg(self, quality: int = 90) -> bytes:
         """Encode the image as JPEG bytes with the specified quality (1-100)"""
-        ...
 
     def to_webp(self) -> bytes:
         """Encode the image as lossless WebP bytes"""
-        ...
 
-def render(html: str, options: Optional[RenderOptions] = None) -> Image:
+def render(html: str, options: RenderOptions | None = None) -> Image:
     """
     Render HTML to an image.
 
@@ -129,12 +116,11 @@ def render(html: str, options: Optional[RenderOptions] = None) -> Image:
         >>> image = dynimg.render(html)
         >>> image.save_png("output.png")
     """
-    ...
 
 def render_to_file(
     html: str,
     path: str,
-    options: Optional[RenderOptions] = None,
+    options: RenderOptions | None = None,
     quality: int = 90,
 ) -> None:
     """
@@ -153,7 +139,5 @@ def render_to_file(
         >>> html = '<html><body><h1>Hello</h1></body></html>'
         >>> dynimg.render_to_file(html, "output.png")
     """
-    ...
 
 __version__: str
-__all__: list[str]

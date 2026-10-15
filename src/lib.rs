@@ -580,23 +580,14 @@ struct MetaOptions {
 /// Extract dynimg meta tags from a parsed document
 fn extract_meta_options(doc: &BaseDocument) -> MetaOptions {
     let mut options = MetaOptions::default();
-    let mut stack = vec![0usize];
+    let meta_ids = doc
+        .query_selector_all("meta")
+        .expect("static selector is valid");
 
-    while let Some(node_id) = stack.pop() {
-        let Some(node) = doc.get_node(node_id) else {
-            continue;
-        };
-
-        stack.extend(node.children.iter().copied());
-
-        let Some(element) = node.element_data() else {
-            continue;
-        };
-
-        if !element.name.local.eq_str_ignore_ascii_case("meta") {
-            continue;
-        }
-
+    for element in meta_ids
+        .into_iter()
+        .filter_map(|id| doc.get_node(id)?.element_data())
+    {
         let mut name_value: Option<&str> = None;
         let mut content_value: Option<&str> = None;
 
@@ -757,7 +748,7 @@ async fn render_document(
     document.as_mut().resolve(0.0);
 
     // Determine final dimensions
-    let computed_height = document.as_ref().root_element().final_layout.size.height;
+    let computed_height = document.as_ref().root_element().final_layout().size.height;
     let render_height = height.unwrap_or_else(|| computed_height.ceil() as u32);
 
     let render_width = (width as f64 * scale as f64) as u32;

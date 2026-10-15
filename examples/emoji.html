@@ -2,7 +2,7 @@
 <html>
     <head>
         <meta name="dynimg:width" content="600" />
-        <meta name="dynimg:height" content="400" />
+        <meta name="dynimg:height" content="560" />
         <style>
             * {
                 margin: 0;
@@ -14,7 +14,7 @@
             }
             .container {
                 width: 600px;
-                height: 400px;
+                height: 560px;
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 display: flex;
                 flex-direction: column;
@@ -36,6 +36,19 @@
                 color: rgba(255, 255, 255, 0.9);
                 font-size: 18px;
             }
+            .compound {
+                margin-top: 24px;
+                display: grid;
+                grid-template-columns: auto auto;
+                gap: 6px 16px;
+                align-items: center;
+                text-align: left;
+                color: rgba(255, 255, 255, 0.9);
+                font-size: 16px;
+            }
+            .compound span:nth-child(even) {
+                font-size: 28px;
+            }
         </style>
     </head>
     <body>
@@ -43,6 +56,26 @@
             <div class="emojis">🚀 🎨 🔥</div>
             <h1>Emoji Rendering</h1>
             <p>Testing emoji support: 👍 ✨ 🌈 💯 🎉 👪️</p>
+            <!-- Multi-codepoint sequences that must shape into a single glyph.
+                 Written as entities so ZWJ (200D), VS16 (FE0F) and tag
+                 characters are visible in the source. -->
+            <div class="compound">
+                <span>ZWJ</span>
+                <!-- family man-woman-girl-boy, couple with heart, rainbow flag, technologist -->
+                <span>&#x1F468;&#x200D;&#x1F469;&#x200D;&#x1F467;&#x200D;&#x1F466; &#x1F469;&#x200D;&#x2764;&#xFE0F;&#x200D;&#x1F468; &#x1F3F3;&#xFE0F;&#x200D;&#x1F308; &#x1F9D1;&#x200D;&#x1F4BB;</span>
+                <span>Skin tone</span>
+                <!-- thumbs up medium, technologist medium-dark (modifier + ZWJ), waving light -->
+                <span>&#x1F44D;&#x1F3FD; &#x1F9D1;&#x1F3FE;&#x200D;&#x1F4BB; &#x1F44B;&#x1F3FB;</span>
+                <span>Flags</span>
+                <!-- regional indicator pairs: US, JP, BR -->
+                <span>&#x1F1FA;&#x1F1F8; &#x1F1EF;&#x1F1F5; &#x1F1E7;&#x1F1F7;</span>
+                <span>Keycap</span>
+                <!-- digit/symbol + VS16 + combining enclosing keycap -->
+                <span>1&#xFE0F;&#x20E3; #&#xFE0F;&#x20E3; *&#xFE0F;&#x20E3;</span>
+                <span>Tags</span>
+                <!-- black flag + tag sequence: Scotland, Wales -->
+                <span>&#x1F3F4;&#xE0067;&#xE0062;&#xE0073;&#xE0063;&#xE0074;&#xE007F; &#x1F3F4;&#xE0067;&#xE0062;&#xE0077;&#xE006C;&#xE0073;&#xE007F;</span>
+            </div>
         </div>
     </body>
 </html>
