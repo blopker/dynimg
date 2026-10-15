@@ -53,6 +53,7 @@ use peniko::{Blob, Fill};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use thiserror::Error;
 
 /// Errors that can occur during rendering
@@ -710,9 +711,13 @@ impl NetProvider for AssetProvider {
 /// loaded. Blitz's `NetHandler` has no failure callback, and it blocks style,
 /// layout and paint until render-blocking resources (e.g. `<head>`
 /// stylesheets) respond, so a dropped request would render nothing.
+///
+/// It also counts activity (requests started and responses delivered) so the
+/// render loop can tell when loading has settled; see [`render_document`].
 struct CombinedProvider {
     assets: Option<AssetProvider>,
     network: Option<HttpProvider>,
+    activity: Arc<AtomicUsize>,
 }
 
 impl CombinedProvider {
@@ -720,16 +725,44 @@ impl CombinedProvider {
         Self {
             assets: assets_dir.map(AssetProvider::new),
             network: allow_net.then(HttpProvider::new),
+            activity: Arc::new(AtomicUsize::new(0)),
         }
     }
 
+    /// Number of requests started plus responses delivered so far
+    fn activity(&self) -> usize {
+        self.activity.load(Ordering::SeqCst)
+    }
+
+    /// True when no network requests are in flight. Asset and data: requests
+    /// are answered synchronously inside `fetch`, so they're never in flight.
     fn is_empty(&self) -> bool {
         self.network.as_ref().is_none_or(HttpProvider::is_empty)
     }
 }
 
+/// Counts a response as activity once the wrapped handler has delivered it
+/// (queued it for the document), so a reader that sees the new count can
+/// rely on the response being processed by the next resolve.
+struct CountingHandler {
+    inner: Box<dyn NetHandler>,
+    activity: Arc<AtomicUsize>,
+}
+
+impl NetHandler for CountingHandler {
+    fn bytes(self: Box<Self>, resolved_url: String, bytes: Bytes) {
+        self.inner.bytes(resolved_url, bytes);
+        self.activity.fetch_add(1, Ordering::SeqCst);
+    }
+}
+
 impl NetProvider for CombinedProvider {
     fn fetch(&self, doc_id: usize, request: Request, handler: Box<dyn NetHandler>) {
+        self.activity.fetch_add(1, Ordering::SeqCst);
+        let handler = Box::new(CountingHandler {
+            inner: handler,
+            activity: self.activity.clone(),
+        });
         let scheme = request.url.scheme();
 
         // Inline data: URIs are self-contained; decode them regardless of
@@ -773,27 +806,26 @@ async fn render_document(
     scale: f32,
     background: Color,
 ) -> (Vec<u8>, u32, u32) {
-    // Resolve resource requests
-    // Wait for all network requests including cascading requests.
-    // CSS stylesheets may trigger font fetches when processed, so we need
-    // multiple consecutive "empty" checks to ensure all cascading requests complete.
-    // Using 5 cycles provides safety margin for complex pages with many resources.
-    let mut consecutive_empty = 0u32;
-    const REQUIRED_EMPTY_CYCLES: u32 = 5;
-
-    while consecutive_empty < REQUIRED_EMPTY_CYCLES {
-        document.resolve(0.0);
-        tokio::time::sleep(std::time::Duration::from_millis(1)).await;
-
-        if provider.is_empty() {
-            consecutive_empty += 1;
-        } else {
-            consecutive_empty = 0;
+    // Load resources, including cascades (a stylesheet's fonts and images
+    // are only requested once a resolve processes the stylesheet). Responses
+    // reach the document through a queue that only resolve() drains, so "no
+    // requests in flight" alone doesn't mean done: a delivered response may
+    // still be waiting to trigger more requests. Loading has settled once a
+    // resolve finishes with nothing in flight and no activity since it
+    // started: no responses were queued for it to miss, and it started no
+    // new requests.
+    loop {
+        let activity_before = provider.activity();
+        document.as_mut().resolve(0.0);
+        // Check in-flight first: a request completing between the two reads
+        // bumps activity before leaving flight, so it can't slip past both.
+        if provider.is_empty() && provider.activity() == activity_before {
+            break;
+        }
+        if !provider.is_empty() {
+            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
         }
     }
-
-    // Compute style and layout
-    document.as_mut().resolve(0.0);
 
     // Determine final dimensions
     let height = height.unwrap_or_else(|| {
@@ -1135,6 +1167,182 @@ mod tests {
         assert!(png.starts_with(b"\x89PNG"));
         assert!(jpeg.starts_with(&[0xFF, 0xD8]));
         assert_eq!(&webp[8..12], b"WEBP");
+    }
+
+    /// A 4x4 opaque PNG of one color
+    fn solid_png(rgb: [u8; 3]) -> Vec<u8> {
+        let pixels: Vec<u8> = (0..16)
+            .flat_map(|_| [rgb[0], rgb[1], rgb[2], 255])
+            .collect();
+        RenderedImage {
+            data: pixels,
+            width: 4,
+            height: 4,
+            quality: DEFAULT_QUALITY,
+        }
+        .to_png()
+        .unwrap()
+    }
+
+    fn base64(bytes: &[u8]) -> String {
+        const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        let mut out = String::new();
+        for chunk in bytes.chunks(3) {
+            let n = chunk
+                .iter()
+                .enumerate()
+                .fold(0u32, |n, (i, b)| n | (*b as u32) << (16 - 8 * i));
+            for i in 0..4 {
+                out.push(if i <= chunk.len() {
+                    ALPHABET[(n >> (18 - 6 * i) & 63) as usize] as char
+                } else {
+                    '='
+                });
+            }
+        }
+        out
+    }
+
+    fn pixel(image: &RenderedImage, x: u32, y: u32) -> [u8; 4] {
+        let i = ((y * image.width + x) * 4) as usize;
+        image.data[i..i + 4].try_into().unwrap()
+    }
+
+    /// Count pixels of `rgb` in row `y`
+    fn count_in_row(image: &RenderedImage, y: u32, rgb: [u8; 3]) -> usize {
+        (0..image.width)
+            .filter(|&x| pixel(image, x, y)[..3] == rgb)
+            .count()
+    }
+
+    #[tokio::test]
+    async fn data_uri_stylesheet_cascade_loads() {
+        // stylesheet -> @import stylesheet -> background image, all data: URIs
+        // (answered synchronously, so no network timing is involved)
+        let image_url = format!("data:image/png;base64,{}", base64(&solid_png([0, 255, 0])));
+        let inner = format!(".box{{width:20px;height:20px;background-image:url('{image_url}')}}");
+        let outer = format!(
+            "@import url('data:text/css;base64,{}');",
+            base64(inner.as_bytes())
+        );
+        let html = format!(
+            r#"<html><head><link rel="stylesheet" href="data:text/css;base64,{}"></head>
+            <body style="margin:0"><div class="box"></div></body></html>"#,
+            base64(outer.as_bytes())
+        );
+        let image = render(&html, RenderOptions::with_size(40, 40).scale(1.0))
+            .await
+            .unwrap();
+        assert_eq!(pixel(&image, 10, 10), [0, 255, 0, 255]);
+    }
+
+    /// Serve fixed responses over HTTP/1.1 on 127.0.0.1, delaying each one.
+    /// Unknown paths get a 404. Returns the base URL.
+    fn serve(routes: Vec<(&'static str, Vec<u8>)>, delay: std::time::Duration) -> String {
+        use std::io::{BufRead, BufReader, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}/", listener.local_addr().unwrap());
+        let routes = Arc::new(routes);
+        std::thread::spawn(move || {
+            for stream in listener.incoming().flatten() {
+                let routes = routes.clone();
+                std::thread::spawn(move || {
+                    let mut reader = BufReader::new(&stream);
+                    let mut request_line = String::new();
+                    reader.read_line(&mut request_line).unwrap();
+                    // Drain headers
+                    let mut line = String::new();
+                    while reader.read_line(&mut line).unwrap() > 2 {
+                        line.clear();
+                    }
+                    let path = request_line.split_whitespace().nth(1).unwrap_or("");
+                    std::thread::sleep(delay);
+                    let (status, body) = match routes.iter().find(|(p, _)| *p == path) {
+                        Some((_, body)) => ("200 OK", body.as_slice()),
+                        None => ("404 Not Found", &[][..]),
+                    };
+                    let mut stream = &stream;
+                    let _ = write!(
+                        stream,
+                        "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                        body.len()
+                    );
+                    let _ = stream.write_all(body);
+                });
+            }
+        });
+        base
+    }
+
+    /// Render `html` against a local server with 30ms latency per response.
+    /// `/a.css` must not reference the 404 path; tests use it for failures.
+    async fn render_served(html: &str, routes: Vec<(&'static str, Vec<u8>)>) -> RenderedImage {
+        let base = serve(routes, std::time::Duration::from_millis(30));
+        let options = RenderOptions::with_size(1000, 100)
+            .scale(1.0)
+            .allow_net()
+            .base_url(base);
+        render(html, options).await.unwrap()
+    }
+
+    /// A green box and a blue text span in a web font, both styled by one
+    /// stylesheet. The image and font can only be requested after blitz
+    /// processes the stylesheet response, at which point nothing else is in
+    /// flight. Returns (box pixel, blue pixels in the span's row).
+    async fn render_stylesheet_resources(font_path: &str) -> ([u8; 4], usize) {
+        let css = format!(
+            "@font-face {{ font-family: web; src: url('{font_path}'); }}
+            .box {{ width: 20px; height: 20px; background-image: url('/green.png') }}"
+        );
+        let html = r#"<html><head><link rel="stylesheet" href="/a.css"></head>
+            <body style="margin:0"><div class="box"></div>
+            <span style="font: 40px web, monospace; background: #00f; color: #00f">MMMMMMMMMM</span>
+            </body></html>"#;
+        let image = render_served(
+            html,
+            vec![
+                ("/a.css", css.into_bytes()),
+                ("/green.png", solid_png([0, 255, 0])),
+                ("/font.ttf", fs::read(test_font()).unwrap()),
+            ],
+        )
+        .await;
+        (pixel(&image, 10, 10), count_in_row(&image, 40, [0, 0, 255]))
+    }
+
+    #[tokio::test]
+    async fn network_stylesheet_resources_load() {
+        let (box_px, span_with_font) = render_stylesheet_resources("/font.ttf").await;
+        assert_eq!(
+            box_px,
+            [0, 255, 0, 255],
+            "background image from a stylesheet should load"
+        );
+        let (_, span_without_font) = render_stylesheet_resources("/missing.ttf").await;
+        assert_ne!(
+            span_with_font, span_without_font,
+            "the @font-face font should change the text's width"
+        );
+    }
+
+    #[tokio::test]
+    async fn network_import_chain_loads() {
+        let html = r#"<html><head><link rel="stylesheet" href="/a.css"></head>
+            <body style="margin:0"><div class="box"></div></body></html>"#;
+        let image = render_served(
+            html,
+            vec![
+                ("/a.css", b"@import url('/b.css');".to_vec()),
+                ("/b.css", b"@import url('/c.css');".to_vec()),
+                (
+                    "/c.css",
+                    b".box{width:20px;height:20px;background-image:url('/green.png')}".to_vec(),
+                ),
+                ("/green.png", solid_png([0, 255, 0])),
+            ],
+        )
+        .await;
+        assert_eq!(pixel(&image, 10, 10), [0, 255, 0, 255]);
     }
 
     #[test]
