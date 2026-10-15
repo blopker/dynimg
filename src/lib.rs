@@ -52,8 +52,8 @@ use net::HttpProvider;
 use peniko::{Blob, Fill};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, OnceLock};
 use thiserror::Error;
 
 /// Errors that can occur during rendering
@@ -407,11 +407,7 @@ pub async fn render(html: &str, options: RenderOptions) -> Result<RenderedImage,
     let provider = Arc::new(CombinedProvider::new(assets_dir, allow_net));
 
     // Register custom fonts alongside system fonts
-    let font_ctx = if fonts.is_empty() && named_fonts.is_empty() {
-        None
-    } else {
-        Some(build_font_context(&fonts, &named_fonts, true)?)
-    };
+    let font_ctx = build_font_context(&fonts, &named_fonts, true)?;
 
     // Parse document
     let mut document = HtmlDocument::from_html(
@@ -420,7 +416,7 @@ pub async fn render(html: &str, options: RenderOptions) -> Result<RenderedImage,
             base_url,
             net_provider: Some(provider.clone() as _),
             viewport: None,
-            font_ctx,
+            font_ctx: Some(font_ctx),
             // Sequential bypasses Stylo's global rayon pool, which panics with
             // "already mutably borrowed" when two documents resolve in parallel.
             // This makes concurrent render() calls safe without a global lock.
@@ -501,8 +497,42 @@ fn parse_color(s: &str) -> Color {
         .unwrap_or(Color::TRANSPARENT)
 }
 
+/// The font collection every render starts from: blitz's list-marker bullet
+/// font plus, if `use_system_fonts`, the system fonts.
+///
+/// Discovering system fonts takes ~10-80ms, far more than the rest of a
+/// typical render, so it happens once per process and each render gets its
+/// own clone (cheap; clones don't share later registrations). Fonts
+/// installed on the host after the first render are therefore only seen
+/// after a restart.
+fn base_font_collection(use_system_fonts: bool) -> fontique::Collection {
+    use fontique::{Collection, CollectionOptions};
+
+    fn with_bullet_font(mut collection: Collection) -> Collection {
+        // Blitz registers this itself only when it builds the font context
+        collection.register_fonts(Blob::new(Arc::new(blitz_dom::BULLET_FONT)), None);
+        collection
+    }
+
+    if !use_system_fonts {
+        return with_bullet_font(Collection::new(CollectionOptions {
+            system_fonts: false,
+            ..Default::default()
+        }));
+    }
+    static WITH_SYSTEM_FONTS: OnceLock<Collection> = OnceLock::new();
+    WITH_SYSTEM_FONTS
+        .get_or_init(|| {
+            with_bullet_font(Collection::new(CollectionOptions {
+                system_fonts: true,
+                ..Default::default()
+            }))
+        })
+        .clone()
+}
+
 /// Build a font context with the given custom fonts registered on top of
-/// system fonts.
+/// the bullet font and (if `use_system_fonts`) system fonts.
 ///
 /// Named-font handling:
 /// - A CSS generic name ("sans-serif", "emoji", ...) maps that generic to
@@ -525,15 +555,12 @@ fn build_font_context(
     named_fonts: &[(String, PathBuf)],
     use_system_fonts: bool,
 ) -> Result<FontContext, Error> {
-    use fontique::{Collection, CollectionOptions, FontInfoOverride, GenericFamily};
+    use fontique::{FontInfoOverride, GenericFamily};
 
     // `use_system_fonts` is always true in production; tests pass false to
     // simulate a host with no discoverable fonts.
     let mut font_ctx = FontContext {
-        collection: Collection::new(CollectionOptions {
-            system_fonts: use_system_fonts,
-            ..Default::default()
-        }),
+        collection: base_font_collection(use_system_fonts),
         source_cache: Default::default(),
     };
 
@@ -1343,6 +1370,57 @@ mod tests {
         )
         .await;
         assert_eq!(pixel(&image, 10, 10), [0, 255, 0, 255]);
+    }
+
+    #[test]
+    fn bullet_font_is_registered() {
+        for use_system_fonts in [false, true] {
+            let mut ctx = build_font_context(&[], &[], use_system_fonts).unwrap();
+            assert!(
+                ctx.collection.family_by_name("Bullet").is_some(),
+                "list markers need blitz's bullet font (system fonts: {use_system_fonts})"
+            );
+        }
+    }
+
+    #[test]
+    fn custom_fonts_do_not_leak_between_renders() {
+        let named = [
+            ("sans-serif".to_string(), test_font()),
+            ("brand".to_string(), emoji_font()),
+        ];
+        let mut with_fonts = build_font_context(&[test_font()], &named, true).unwrap();
+        assert!(with_fonts.collection.family_by_name("brand").is_some());
+
+        let mut fresh = build_font_context(&[], &[], true).unwrap();
+        assert!(fresh.collection.family_by_name("Silkscreen").is_none());
+        assert!(fresh.collection.family_by_name("brand").is_none());
+        let first_sans_id = fresh
+            .collection
+            .generic_families(GenericFamily::SansSerif)
+            .next();
+        let first_sans =
+            first_sans_id.and_then(|id| fresh.collection.family_name(id).map(str::to_owned));
+        assert_ne!(first_sans.as_deref(), Some("Silkscreen"));
+    }
+
+    #[tokio::test]
+    async fn list_markers_unaffected_by_custom_fonts() {
+        let html = r#"<html><body style="margin:0;font: 40px serif">
+            <ul style="list-style-position:inside;margin:0"><li>disc</li></ul>
+            <ul style="list-style:square inside;margin:0"><li>square</li></ul>
+            </body></html>"#;
+        let options = || RenderOptions::default().width(300).scale(1.0);
+        let plain = render(html, options()).await.unwrap();
+        // Maps a generic the page doesn't use, so nothing visible should change
+        let custom = render(html, options().named_font_file("cursive", test_font()))
+            .await
+            .unwrap();
+        assert_eq!((plain.width, plain.height), (custom.width, custom.height));
+        assert!(
+            plain.data == custom.data,
+            "list markers changed with custom fonts"
+        );
     }
 
     #[test]
