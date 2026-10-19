@@ -1,0 +1,154 @@
+<!doctype html>
+<!-- README header banner, styled as a press proof sheet. Render from the project root with:
+     dynimg examples/readme-header.html -o header.jpg --allow-net -->
+<html>
+<head>
+<meta name="dynimg:width" content="1280" />
+<meta name="dynimg:height" content="440" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@144,900&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { width: 1280px; height: 440px; overflow: hidden; background: #e9e4d8; }
+
+  .sheet {
+    position: relative; width: 1280px; height: 440px; overflow: hidden;
+    background:
+      radial-gradient(ellipse 80% 90% at 50% 40%, #f6f2e8 0%, #ece6d8 70%, #e2dbca 100%);
+    font-family: "IBM Plex Mono", monospace; color: #1d1b18;
+  }
+
+  /* Halftone field: a dot grid faded out by a radial mask. The grid is split
+     into strips because Blitz skips gradient backgrounds that would repeat more
+     than 500 times. Stops are percentages so the dots scale with the render. */
+  .halftone {
+    position: absolute; right: 50px; top: 136px; width: 456px; height: 288px;
+    display: flex; flex-direction: column;
+    mask-image: radial-gradient(circle at 60% 50%, black 15%, transparent 50%);
+    opacity: 0.75;
+  }
+  /* Strip heights are whole multiples of the dot spacing so rows line up */
+  .halftone div {
+    flex: 1;
+    background-image: radial-gradient(circle, #ec008c 35%, transparent 40%);
+    background-size: 12px 12px;
+  }
+  .halftone.cyan {
+    right: 250px; top: 60px; width: 400px; height: 300px;
+    mask-image: radial-gradient(circle at 40% 55%, black 12%, transparent 48%);
+    opacity: 0.6;
+  }
+  .halftone.cyan div {
+    background-image: radial-gradient(circle, #00aeef 35%, transparent 40%);
+    background-size: 10px 10px;
+  }
+
+  /* Out-of-register title: the C, M and Y plates drift from the key plate */
+  .title-wrap { position: absolute; left: 92px; top: 92px; }
+  .title {
+    font-family: "Fraunces", serif; font-weight: 900; font-size: 210px;
+    line-height: 1; letter-spacing: -8px;
+    padding-bottom: 60px; /* room for descenders, which are clipped to the box */
+  }
+  .plate { position: absolute; left: 0; top: 0; mix-blend-mode: multiply; }
+  .plate.y { color: #fff200; left: 9px; top: -4px; }
+  .plate.c { color: #00aeef; left: -6px; top: 5px; opacity: 0.9; }
+  .plate.m { color: #ec008c; left: 5px; top: 3px; opacity: 0.85; }
+  .plate.k { position: relative; color: #1d1b18; }
+
+  .caption {
+    position: absolute; left: 100px; top: 330px; font-size: 18px; letter-spacing: 0.5px;
+  }
+  .caption b { display: inline-block; font-weight: 600; background: #1d1b18; color: #f6f2e8; padding: 2px 8px; }
+
+  /* Rulers along the top and left edges */
+  .ruler-top {
+    position: absolute; left: 40px; right: 40px; top: 0; height: 14px;
+    background:
+      repeating-linear-gradient(90deg, #1d1b18 0 1px, transparent 1px 50px),
+      repeating-linear-gradient(90deg, rgba(29, 27, 24, 0.5) 0 1px, transparent 1px 10px);
+    background-size: 100% 14px, 100% 7px;
+    background-repeat: no-repeat;
+  }
+  .ruler-left {
+    position: absolute; top: 40px; bottom: 40px; left: 0; width: 14px;
+    background:
+      repeating-linear-gradient(180deg, #1d1b18 0 1px, transparent 1px 50px),
+      repeating-linear-gradient(180deg, rgba(29, 27, 24, 0.5) 0 1px, transparent 1px 10px);
+    background-size: 14px 100%, 7px 100%;
+    background-repeat: no-repeat;
+  }
+
+  /* Crop marks at each corner of the trim box */
+  .crop { position: absolute; width: 22px; height: 22px; border-color: #1d1b18; border-style: solid; border-width: 0; }
+  .crop.tl { left: 30px; top: 30px; border-right-width: 1px; border-bottom-width: 1px; }
+  .crop.tr { right: 30px; top: 30px; border-left-width: 1px; border-bottom-width: 1px; }
+  .crop.bl { left: 30px; bottom: 30px; border-right-width: 1px; border-top-width: 1px; }
+  .crop.br { right: 30px; bottom: 30px; border-left-width: 1px; border-top-width: 1px; }
+
+  /* Registration target: ring with crosshair */
+  .reg { position: absolute; width: 34px; height: 34px; }
+  .reg::before {
+    content: ""; position: absolute; inset: 6px; border: 1.5px solid #1d1b18; border-radius: 50%;
+  }
+  .reg::after {
+    content: ""; position: absolute; inset: 0;
+    background:
+      linear-gradient(#1d1b18, #1d1b18) center / 1.5px 100% no-repeat,
+      linear-gradient(#1d1b18, #1d1b18) center / 100% 1.5px no-repeat;
+  }
+  .reg.top { left: 50%; margin-left: -17px; top: 8px; }
+  .reg.bottom { left: 50%; margin-left: -17px; bottom: 8px; }
+
+  /* CMYK colour control strip */
+  .bars { position: absolute; right: 60px; bottom: 44px; display: flex; border: 1px solid #1d1b18; outline: 6px solid #ece6d8; background: #ece6d8; }
+  .bars span { width: 26px; height: 18px; }
+
+  .slug {
+    position: absolute; left: 60px; bottom: 44px; font-size: 12px; letter-spacing: 1px;
+    text-transform: uppercase; color: #5a554b;
+  }
+  .meta {
+    position: absolute; right: 60px; top: 52px; text-align: right;
+    font-size: 12px; line-height: 1.7; letter-spacing: 1px; text-transform: uppercase; color: #5a554b;
+  }
+  .meta em { font-style: normal; color: #ec008c; font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="sheet">
+    <div class="halftone"><div></div><div></div><div></div></div>
+    <div class="halftone cyan"><div></div><div></div><div></div></div>
+
+    <div class="ruler-top"></div>
+    <div class="ruler-left"></div>
+    <div class="crop tl"></div><div class="crop tr"></div>
+    <div class="crop bl"></div><div class="crop br"></div>
+    <div class="reg top"></div><div class="reg bottom"></div>
+
+    <div class="meta">
+      Proof 001 · <em>Approved</em><br />
+      Rendered by dynimg<br />
+      1280 × 440 @ 2x<br />
+      html → png / webp / jpeg
+    </div>
+
+    <div class="title-wrap">
+      <div class="title plate y">Dynimg</div>
+      <div class="title plate c">Dynimg</div>
+      <div class="title plate m">Dynimg</div>
+      <div class="title plate k">Dynimg</div>
+    </div>
+
+    <div class="caption"><b>HTML + CSS</b> → images. No browser, built for servers.</div>
+
+    <div class="slug">python · rust · cli</div>
+    <div class="bars">
+      <span style="background:#00aeef"></span><span style="background:#ec008c"></span>
+      <span style="background:#fff200"></span><span style="background:#1d1b18"></span>
+      <span style="background:#7fd6f7"></span><span style="background:#f57fc5"></span>
+      <span style="background:#fff87f"></span><span style="background:#8e8d8b"></span>
+      <span style="background:#d6d1c4"></span>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,5 +1,7 @@
 # dynimg
 
+![dynimg: HTML + CSS to images](https://raw.githubusercontent.com/blopker/dynimg/main/header.webp)
+
 A fast library and CLI for rendering HTML/CSS to images. Use from Python, Rust, or the command line. Built on [Blitz](https://github.com/DioxusLabs/blitz), a modular Rust rendering engine.
 
 Perfect for generating dynamic images like Open Graph (OG) images, social media cards, email headers, and more.
