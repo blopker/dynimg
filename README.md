@@ -1,4 +1,4 @@
-# dynimg
+# Dynimg
 
 ![dynimg: HTML + CSS to images](https://raw.githubusercontent.com/blopker/dynimg/main/header.webp)
 
