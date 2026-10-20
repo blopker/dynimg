@@ -38,7 +38,7 @@ To use it from Rust, depend on the git repository (dynimg isn't on crates.io bec
 
 ```toml
 [dependencies]
-dynimg = { git = "https://github.com/blopker/dynimg", tag = "v0.2.0" }
+dynimg = { git = "https://github.com/blopker/dynimg", tag = "v0.3.0" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 ```
 
