@@ -60,10 +60,6 @@ fn decode(path: &str) -> (Vec<[u8; 4]>, usize, usize) {
         .unwrap_or_else(|e| panic!("failed to decode {path}: {e}"))
         .into_rgba8();
     let (width, height) = (image.width() as usize, image.height() as usize);
-    let pixels = image
-        .into_raw()
-        .chunks_exact(4)
-        .map(|px| [px[0], px[1], px[2], px[3]])
-        .collect();
+    let pixels = image.into_raw().as_chunks::<4>().0.to_vec();
     (pixels, width, height)
 }

@@ -22,7 +22,7 @@ update_snapshot:
 
 # Run lints
 lint:
-	cargo clippy -- -D warnings
+	cargo clippy --all-features --all-targets -- -D warnings
 	cargo fmt -- --check
 
 # Format code
