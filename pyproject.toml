@@ -26,6 +26,9 @@ classifiers = [
 keywords = ["html", "css", "image", "render", "screenshot", "og-image"]
 dependencies = []
 
+[project.scripts]
+dynimg = "dynimg:main"
+
 [project.urls]
 Homepage = "https://github.com/blopker/dynimg"
 Repository = "https://github.com/blopker/dynimg"

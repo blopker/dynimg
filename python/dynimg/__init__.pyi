@@ -156,3 +156,9 @@ def render_to_file(
     """
 
 __version__: str
+
+def cli_main(argv: Sequence[str]) -> int:
+    """Run the dynimg CLI with argv (including the program name); returns the exit code."""
+
+def main() -> None:
+    """Entry point for the `dynimg` console script."""

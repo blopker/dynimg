@@ -18,9 +18,12 @@ Example:
     >>> image.save_png("output.png")
 """
 
+import sys
+
 from dynimg._dynimg import (
     Image,
     RenderOptions,
+    cli_main,
     render,
     render_to_file,
 )
@@ -35,3 +38,8 @@ __all__ = [
 from importlib.metadata import version as _get_version
 
 __version__ = _get_version("dynimg")
+
+
+def main() -> None:
+    """Entry point for the `dynimg` console script."""
+    sys.exit(cli_main(["dynimg", *sys.argv[1:]]))

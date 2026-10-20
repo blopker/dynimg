@@ -27,6 +27,8 @@
 //! }
 //! ```
 
+#[doc(hidden)]
+pub mod cli;
 mod net;
 
 #[cfg(feature = "python")]

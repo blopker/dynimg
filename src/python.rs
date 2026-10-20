@@ -4,6 +4,7 @@ use crate::{Error, RenderOptions as RustRenderOptions, RenderedImage, render as 
 use pyo3::exceptions::{PyIOError, PyRuntimeError};
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
+use std::ffi::OsString;
 use std::path::PathBuf;
 
 impl From<Error> for PyErr {
@@ -313,6 +314,13 @@ fn render_to_file(
     block_on(py, || crate::render_to_file(html, path, opts))
 }
 
+/// Run the dynimg CLI with `argv` (including the program name) and return
+/// the exit code. Backs the `dynimg` console script.
+#[pyfunction]
+fn cli_main(py: Python<'_>, argv: Vec<OsString>) -> i32 {
+    py.detach(|| crate::cli::run(argv))
+}
+
 /// Python module
 #[pymodule]
 pub fn _dynimg(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -320,5 +328,6 @@ pub fn _dynimg(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Image>()?;
     m.add_function(wrap_pyfunction!(render, m)?)?;
     m.add_function(wrap_pyfunction!(render_to_file, m)?)?;
+    m.add_function(wrap_pyfunction!(cli_main, m)?)?;
     Ok(())
 }
