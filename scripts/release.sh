@@ -87,6 +87,10 @@ echo -e "${GREEN}✓${NC} Updated Cargo.toml"
 sed -i '' "s/^version = \"$CURRENT_VERSION\"/version = \"$NEW_VERSION\"/" pyproject.toml
 echo -e "${GREEN}✓${NC} Updated pyproject.toml"
 
+# Update the git tag in the README's Rust install snippet
+sed -i '' "s/tag = \"v$CURRENT_VERSION\"/tag = \"v$NEW_VERSION\"/" README.md
+echo -e "${GREEN}✓${NC} Updated README.md"
+
 # Update Cargo.lock
 cargo check --quiet
 echo -e "${GREEN}✓${NC} Updated Cargo.lock"
@@ -109,7 +113,7 @@ echo ""
 echo "=== Committing and tagging ==="
 
 # Commit changes
-git add Cargo.toml Cargo.lock pyproject.toml
+git add Cargo.toml Cargo.lock pyproject.toml README.md
 git commit -m "Release v$NEW_VERSION"
 echo -e "${GREEN}✓${NC} Committed changes"
 
