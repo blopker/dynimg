@@ -777,7 +777,6 @@ dependencies = [
  "webp",
  "zenjpeg",
  "zensim",
- "zune-jpeg",
 ]
 
 [[package]]

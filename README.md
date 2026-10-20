@@ -6,8 +6,6 @@ A fast library and CLI for rendering HTML/CSS to images. Use from Python, Rust, 
 
 Perfect for generating dynamic images like Open Graph (OG) images, social media cards, email headers, and more.
 
-## Example Output
-
 <table>
 <tr>
 <td><img src="https://raw.githubusercontent.com/blopker/dynimg/main/tests/snapshots/og-image.png" width="400" alt="OG Image Example"></td>
@@ -15,197 +13,162 @@ Perfect for generating dynamic images like Open Graph (OG) images, social media 
 </tr>
 </table>
 
-## Features
+- **PNG, WebP (lossless), and JPEG** output, with transparent backgrounds for PNG and WebP
+- **Fast**: native Rust, no browser
+- **Secure by default**: network and filesystem access are off unless enabled
 
-- **Python + Rust + CLI**: Use from Python, as a Rust library, or command-line tool
-- **Multiple output formats**: PNG, WebP (lossless), and JPEG
-- **Transparent backgrounds**: PNG and WebP support transparency (JPEG uses white)
-- **High-quality rendering**: Configurable scale factor for retina displays
-- **Fast**: Native Rust performance with no browser overhead
-- **Secure by default**: Network and filesystem access disabled unless explicitly enabled
+## Limitations
+
+dynimg turns small custom templates into images quickly. It is not a way to screenshot arbitrary web pages.
+
+- **No JavaScript.**
+- **Not every HTML/CSS feature works.** Blitz's [CSS status page](https://blitz.is/status/css) lists what's supported, though dynimg may lag behind the latest Blitz. Check that the output looks the way you want; some designs need workarounds to render like a real browser.
+- **Not for untrusted documents.** Network and filesystem access are off by default, but dynimg isn't designed to render arbitrary user-submitted HTML. See [Untrusted templates](#untrusted-templates) for the known risks.
+- **Encoding favors quality over size.** Output images are reasonably sized, but for production you may want to optimize them with a dedicated library and cache the result.
 
 ## Installation
-
-### Python
 
 ```bash
 pip install dynimg
 ```
 
-### Rust CLI
+This installs both the Python library and the `dynimg` command.
 
-```bash
-cargo install dynimg
-```
-
-### Rust Library
+To use it from Rust, depend on the git repository (dynimg isn't on crates.io because Blitz is pinned to a git revision):
 
 ```toml
 [dependencies]
-dynimg = "0.1"
+dynimg = { git = "https://github.com/blopker/dynimg", tag = "v0.2.0" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 ```
 
-## Library Usage
+Or install the CLI with `cargo install --git https://github.com/blopker/dynimg`.
+
+## Usage
+
+### CLI
+
+```bash
+dynimg input.html -o output.png                    # format from the extension: .png, .webp, .jpg
+dynimg input.html -o output.png -w 1200 -H 630     # 1200×630 viewport → 2400×1260 image
+dynimg input.html | some-command                   # piped: writes PNG to stdout (-f to pick the format)
+echo '<h1>Hello</h1>' | dynimg - -o output.png     # read HTML from stdin
+```
+
+Without `-o`, output goes to stdout when it's piped, and to `<input name>.jpg` otherwise. Run `dynimg --help` for all options.
+
+### Python
+
+```python
+import dynimg
+
+html = """
+<body style="margin: 0; height: 630px; display: flex; align-items: center;
+             justify-content: center; background: linear-gradient(135deg, #667eea, #764ba2);">
+  <h1 style="color: white; font-family: system-ui; font-size: 64px;">Hello World</h1>
+</body>
+"""
+
+image = dynimg.render(html, dynimg.RenderOptions(width=1200, height=630))
+image.save_png("output.png")       # also save_webp(path), save_jpeg(path, quality=None)
+png_bytes = image.to_png()         # also to_webp(), to_jpeg(quality=None)
+print(image.width, image.height)   # pixel size of the output
+
+# Or render straight to a file (format from the extension)
+dynimg.render_to_file(html, "output.jpg", quality=85)
+```
+
+### Rust
 
 ```rust
-use dynimg::{render, RenderOptions};
+use dynimg::{render, render_to_file, RenderOptions};
 
 #[tokio::main]
 async fn main() -> Result<(), dynimg::Error> {
-    let html = r#"
-        <html>
-        <body style="background: linear-gradient(135deg, #667eea, #764ba2);
-                     display: flex; justify-content: center; align-items: center;
-                     height: 630px; margin: 0;">
-            <h1 style="color: white; font-family: system-ui; font-size: 64px;">
-                Hello World
-            </h1>
-        </body>
-        </html>
-    "#;
+    let html = "<body style='background: #4f46e5'><h1>Hello World</h1></body>";
 
-    // Render with default options (1200×auto viewport, 2x scale)
-    let image = render(html, RenderOptions::default()).await?;
+    let options = RenderOptions::default().width(1200).height(630);
+    let image = render(html, options.clone()).await?;
+    image.save("output.png")?;          // format from the extension
+    let webp = image.to_webp();         // also to_png(), to_jpeg(quality)
 
-    // Save as PNG
-    image.save_png("output.png")?;
-
-    // Or get raw bytes
-    let png_bytes = image.to_png()?;
-    let webp_bytes = image.to_webp();
-    let jpeg_bytes = image.to_jpeg(90)?;
-
+    // Or render straight to a file
+    render_to_file(html, "output.jpg", options).await?;
     Ok(())
 }
 ```
 
-### Configuration
+`RenderOptions` also has public fields, so `RenderOptions { width: Some(1200), ..Default::default() }` works too.
 
-```rust
-use dynimg::RenderOptions;
+## Options
 
-// Using builder pattern
-let options = RenderOptions::default()
-    .width(1200)
-    .height(630)
-    .scale(2.0)
-    .allow_net()
-    .assets_dir("./assets")
-    .quality(90)            // JPEG quality (default: 90)
-    .background("#ffffff")  // Any CSS color (default: transparent)
-    .font_file("./fonts/Inter-Regular.ttf");  // Custom font (TTF/OTF/WOFF/WOFF2)
+Each option can be set from the CLI, from code, or with a `<meta>` tag in the HTML. Values passed explicitly win over meta tags, which win over the defaults.
 
-// Or struct initialization
-// (None = use the page's meta tag, then the default)
-let options = RenderOptions {
-    width: Some(1200),
-    height: Some(630),
-    scale: Some(2.0),
-    allow_net: true,
-    assets_dir: Some("./assets".into()),
-    background: Some("#ffffff".into()),  // None = transparent
-    ..Default::default()
-};
-```
-
-Options set here take precedence over [meta tags](#html-meta-tags) in the page,
-which take precedence over the defaults.
-
-### Convenience function
-
-```rust
-use dynimg::{render_to_file, RenderOptions};
-
-// Render directly to a file (format detected from extension)
-render_to_file(html, "output.png", RenderOptions::default()).await?;
-```
-
-## CLI Usage
-
-### Basic Usage
-
-Render an HTML file to PNG:
-
-```bash
-dynimg input.html -o output.png
-```
-
-### Output Formats
-
-```bash
-# PNG (lossless, supports transparency)
-dynimg input.html -o image.png
-
-# WebP (lossless, supports transparency)
-dynimg input.html -o image.webp
-
-# JPEG (lossy, no transparency - uses white background)
-dynimg input.html -o image.jpg --quality 90
-```
-
-### Transparent Backgrounds
-
-PNG and WebP output supports transparent backgrounds. Simply don't set a background on your HTML body:
+| Option | CLI | Python `RenderOptions` | Rust builder | Meta tag | Default |
+|---|---|---|---|---|---|
+| Viewport width (CSS px) | `-w, --width` | `width` | `.width()` | `dynimg:width` | 1200 |
+| Viewport height (CSS px) | `-H, --height` | `height` | `.height()` | `dynimg:height` | document height |
+| Scale factor | `-s, --scale` | `scale` | `.scale()` | `dynimg:scale` | 2 |
+| JPEG quality (1–100) | `-q, --quality` | `quality` | `.quality()` | `dynimg:quality` | 90 |
+| Allow network | `--allow-net` | `allow_net` | `.allow_net()` | | off |
+| Local assets directory | `--assets` | `assets_dir` | `.assets_dir()` | | none |
+| Base URL for relative URLs | (input file's directory) | `base_url` | `.base_url()` | | none |
+| Background color (any CSS color) | | `background` | `.background()` | | transparent |
+| Custom fonts | `--font` | `fonts` | `.font_file()`, `.named_font_file()` | | none |
+| Verbose logging | `-v, --verbose` | `verbose` | `.verbose()` | | off |
 
 ```html
-<body style="padding: 20px;">
-  <div style="background: white; border-radius: 8px; padding: 20px;">
-    Content with transparent surrounding area
-  </div>
-</body>
+<meta name="dynimg:width" content="1200">
+<meta name="dynimg:height" content="630">
 ```
+
+### Image size
+
+Width and height set the **viewport**, the size your CSS lays out against. The output image is **viewport × scale**: the default 1200px viewport at 2x produces a 2400px-wide image. Write your CSS at viewport size (`width: 1200px`) and use `--scale 1` when you need exact pixel dimensions.
+
+Output images are limited to 8192 pixels on each side; larger renders fail with an error rather than being cropped.
+
+### Transparency and JPEG
+
+PNG and WebP keep transparent areas, so leave the page background unset to get a transparent image:
 
 <img src="https://raw.githubusercontent.com/blopker/dynimg/main/tests/snapshots/transparent.png" width="300" alt="Transparent background example">
 
-JPEG doesn't support transparency, so it automatically uses a white background.
+JPEG has no transparency. The CLI and `render_to_file` use a white background for `.jpg` output when none is set. When encoding a rendered image yourself with `to_jpeg()`, set `background` (e.g. `"#ffffff"`), otherwise transparent areas come out black.
 
-### Image Dimensions
+## External Resources
 
-The `--width` and `--height` options set the **viewport size** (CSS layout dimensions). The actual output image is scaled by the `--scale` factor (default: 2x for high-DPI/retina displays).
-
-**Output image size = viewport × scale**
+Network and filesystem access are off by default. Enable them to load images, stylesheets, and fonts:
 
 ```bash
-# Default: 1200px viewport → 2400px output (at 2x scale)
-dynimg input.html -o output.png
-
-# OG image: 1200×630 viewport → 2400×1260 output
-dynimg input.html -o output.png --width 1200 --height 630
-
-# 1x scale for exact pixel dimensions (1200×630 output)
-dynimg input.html -o output.png --width 1200 --height 630 --scale 1
-
-# 3x scale for extra-high-DPI (3600×1890 output)
-dynimg input.html -o output.png --width 1200 --height 630 --scale 3
+dynimg input.html -o output.png --allow-net         # remote URLs
+dynimg input.html -o output.png --assets ./assets   # local files
 ```
 
-Your HTML/CSS should use the viewport dimensions (e.g., `width: 1200px`) - the scale factor handles the high-resolution rendering.
+With an assets directory, local paths resolve inside it, and paths that escape it fail:
 
-### Reading from stdin
-
-```bash
-echo '<html><body><h1>Hello</h1></body></html>' | dynimg - -o output.png
+```html
+<img src="img/hero.png">     <!-- loads ./assets/img/hero.png -->
+<img src="../secret.png">    <!-- ERROR: outside assets directory -->
 ```
 
-### Loading External Resources
+`data:` URIs always work, which makes them handy for self-contained templates.
 
-By default, network and filesystem access are disabled for security. Enable them to load images, fonts, and other resources:
+## Untrusted Templates
 
-```bash
-# Load images/fonts from URLs
-dynimg input.html -o output.png --allow-net
+dynimg isn't hardened for rendering HTML written by people you don't trust. Local files outside `--assets` and the network (unless allowed) are out of reach, but a hostile template can still:
 
-# Load images/fonts from a local assets directory
-dynimg input.html -o output.png --assets ./assets
+- **Crash the process.** A few thousand nested elements overflow the stack. In Python this kills the interpreter (a segfault), not a catchable exception.
+- **Use a lot of CPU.** There is no render time limit, so expensive layouts or effects can tie up a worker.
+- **Use a lot of memory.** Templates pick their own size through meta tags and content height, up to the 8192×8192 limit. At that size the pixel buffer is 256 MiB, and encoding can push peak memory to about 500 MiB for JPEG and 1 GiB for WebP. Setting width, height, and scale explicitly takes that choice away from the template.
+- **Make requests from your server**, if network access is on. Private and internal addresses (like cloud metadata endpoints) aren't blocked, and redirects are followed.
+- **Feed arbitrary bytes to image and font decoders.** `data:` URIs are always decoded, even with network and file access off.
 
-# Allow both
-dynimg input.html -o output.png --allow-net --assets ./assets
-```
+If you render untrusted templates anyway, do it in a separate process with memory and time limits, set the size explicitly, and leave network access off. If you find a security flaw, please [report it privately](https://github.com/blopker/dynimg/security/advisories/new) rather than opening a public issue.
 
-### Custom Fonts
+## Fonts
 
-Register font files directly, no `@font-face` or asset directory needed. The font's family name (read from the file) matches `font-family` in CSS:
+Register font files (TTF/OTF/WOFF/WOFF2) directly, without `@font-face` or an assets directory. A font is registered under the family name inside the file, and takes priority over system fonts with the same name:
 
 ```bash
 dynimg input.html -o output.png --font Inter-Regular.ttf --font Inter-Bold.ttf
@@ -215,9 +178,7 @@ dynimg input.html -o output.png --font Inter-Regular.ttf --font Inter-Bold.ttf
 <h1 style="font-family: 'Inter'">Uses the registered font</h1>
 ```
 
-Registered fonts take priority over system fonts with the same family name.
-
-Fonts can also be registered under a CSS name with `NAME=FILE`. A CSS generic name (`serif`, `sans-serif`, `monospace`, `cursive`, `fantasy`, `system-ui`, `ui-serif`, `ui-sans-serif`, `ui-monospace`, `ui-rounded`, `emoji`, `math`, `fangsong`) maps that generic to the font with priority over the platform mapping — `emoji` takes priority over the platform emoji font, so emoji render identically on every host (to fully pin emoji, also map the text generics your pages use). Platform fonts are used only as a last resort for glyphs your fonts don't cover. Any other name becomes the font's family name:
+`NAME=FILE` registers a font under a CSS name instead. A CSS generic (`serif`, `sans-serif`, `monospace`, `cursive`, `fantasy`, `system-ui`, `ui-serif`, `ui-sans-serif`, `ui-monospace`, `ui-rounded`, `emoji`, `math`, `fangsong`) is mapped to that font ahead of the platform's choice. Any other name becomes the font's family name:
 
 ```bash
 dynimg input.html -o output.png \
@@ -226,355 +187,51 @@ dynimg input.html -o output.png \
   --font brand=FancyDisplay.ttf   # matches font-family: 'brand'
 ```
 
-When using `--assets`, all local paths are resolved relative to the asset directory. Attempts to load files outside this directory will error:
-
-```html
-<!-- With --assets ./assets -->
-<img src="logo.png">         <!-- loads ./assets/logo.png -->
-<img src="img/hero.png">     <!-- loads ./assets/img/hero.png -->
-<img src="../secret.png">    <!-- ERROR: outside assets directory -->
-```
-
-For self-contained templates, consider using inline base64 data URIs instead:
-
-```html
-<img src="data:image/png;base64,iVBORw0KGgo...">
-```
-
-### Minimal containers (Docker)
-
-System font discovery on Linux uses fontconfig when it's installed, but it's optional — dynimg loads it dynamically and degrades gracefully when it's missing. In a minimal container you don't need fontconfig, libexpat, or `fc-cache`; just pass your fonts directly:
+In Python, `fonts` takes a path, a `{name: path}` dict, or a list mixing both:
 
 ```python
-from pathlib import Path
-
-fonts = [str(p) for p in Path("/app/static/fonts").glob("*.ttf")]
-options = dynimg.RenderOptions(fonts=fonts)
+options = dynimg.RenderOptions(fonts=[
+    "/app/fonts/Inter-Bold.ttf",
+    {"sans-serif": "/app/fonts/Inter-Regular.ttf", "emoji": "/app/fonts/Twemoji.ttf"},
+])
 ```
 
-When no system fonts are discoverable, registered fonts also back generic CSS families (`sans-serif`, `serif`, `monospace`, ...), so unstyled text still renders.
+Mapping the generics your pages use (and `emoji`) makes rendering identical on every host. Platform fonts are then only a fallback for glyphs your fonts don't cover.
 
-Name mappings pin the generic families and emoji to your fonts, so rendering is identical on macOS, Linux, and in containers — no fontconfig aliasing required:
+### Minimal containers
 
-```python
-options = dynimg.RenderOptions(
-    fonts=[
-        "/app/static/fonts",
-        {
-            "sans-serif": "/app/static/fonts/Montserrat.ttf",
-            "emoji": "/app/static/fonts/TwemojiCOLRv0.ttf",
-        },
-    ],
-)
-```
-
-## CLI Reference
-
-```
-dynimg [OPTIONS] <INPUT>
-
-Arguments:
-  <INPUT>   HTML file path or '-' for stdin
-
-Options:
-  -o, --output <FILE>       Output image path (format detected from extension).
-                            '-' writes to stdout. If omitted: stdout when piped,
-                            otherwise <INPUT stem>.jpg
-  -f, --format <FORMAT>     Format when writing to stdout: png, jpg, webp [default: png]
-  -w, --width <PIXELS>      Viewport width in CSS pixels [default: 1200]
-  -H, --height <PIXELS>     Viewport height in CSS pixels [default: document height]
-  -s, --scale <FACTOR>      Scale multiplier for output (2 = 2x resolution) [default: 2]
-  -q, --quality <1-100>     JPEG quality [default: 90]
-      --allow-net           Allow network access for loading remote resources
-      --assets <DIR>        Asset directory for local resources
-      --font <[NAME=]FILE>  Custom font file (TTF/OTF/WOFF/WOFF2),
-                            repeatable. NAME= registers under a CSS name:
-                            generics (sans-serif, emoji, ...) map that generic,
-                            other names become the font-family name
-  -v, --verbose             Enable verbose logging on stderr
-      --help                Print help
-      --version             Print version
-
-Options can also be set via HTML meta tags (see below). CLI flags override meta tags.
-
-Note: Output image dimensions = viewport × scale. A 1200×630 viewport at 2x scale produces a 2400×1260 image.
-```
-
-## Python Usage
-
-```python
-import dynimg
-
-html = """
-<html>
-<style>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-</style>
-<body style="background: linear-gradient(135deg, #667eea, #764ba2);
-             display: flex; justify-content: center; align-items: center;
-             height: 630px; margin: 0;">
-    <h1 style="color: white; font-family: system-ui; font-size: 64px;">
-        Hello World
-    </h1>
-</body>
-</html>
-"""
-
-# Render with default options
-image = dynimg.render(html)
-
-# Save to file
-image.save("output.png")
-
-# Or get bytes
-png_bytes = image.to_png()
-webp_bytes = image.to_webp()
-jpeg_bytes = image.to_jpeg(quality=90)
-```
-
-### Configuration
-
-```python
-import dynimg
-
-options = dynimg.RenderOptions(
-    width=1200,          # Viewport width (default: 1200)
-    height=630,          # Viewport height (default: auto)
-    scale=2.0,           # Output scale factor (default: 2.0)
-    allow_net=True,      # Allow network requests (default: False)
-    assets_dir="./assets",  # Local assets directory (default: None)
-    base_url="https://example.com",  # Base URL for relative URLs (default: None)
-    quality=90,          # JPEG quality (default: 90)
-    background="#ffffff",  # Any CSS color (default: transparent)
-    # Custom fonts: file paths or {css_name: path} mappings (default: None)
-    fonts=["./fonts/Inter-Variable.ttf", {"emoji": "./fonts/TwemojiCOLRv0.ttf"}],
-)
-
-image = dynimg.render(html, options)
-```
-
-Options set here take precedence over [meta tags](#html-meta-tags) in the page;
-options left unset fall back to the meta tag, then the default.
-
-### Direct File Output
-
-```python
-# Render directly to a file (format detected from extension)
-dynimg.render_to_file(html, "output.png")
-
-# With options
-dynimg.render_to_file(html, "output.png", options=options)
-
-# JPEG with quality setting
-dynimg.render_to_file(html, "output.jpg", quality=90)
-```
-
-### Image Properties
-
-```python
-image = dynimg.render(html)
-print(f"Size: {image.width}x{image.height}")
-print(f"JPEG quality: {image.quality}")  # used by to_jpeg()/save_jpeg() by default
-print(f"Bytes: {len(image.data)}")
-```
-
-## HTML Meta Tags
-
-You can configure rendering options directly in your HTML using meta tags. Options passed explicitly (CLI flags, `RenderOptions` in Rust or Python) take precedence over meta tags.
-
-```html
-<meta name="dynimg:width" content="1200">   <!-- viewport width -->
-<meta name="dynimg:height" content="630">   <!-- viewport height -->
-<meta name="dynimg:scale" content="2">      <!-- output multiplier -->
-<meta name="dynimg:quality" content="90">   <!-- JPEG quality -->
-```
-
-This is useful for templates that should always render at specific dimensions. Remember: the output image size is viewport × scale.
+On Linux, system fonts are found through fontconfig when it's installed, but it's optional: dynimg loads it at runtime and works without it. In a minimal container you don't need fontconfig, libexpat, or `fc-cache`; register your fonts directly. When no system fonts are found, registered fonts also back the generic families, so unstyled text still renders.
 
 ## Example Templates
 
-### OG Image
-
-<img src="https://raw.githubusercontent.com/blopker/dynimg/main/tests/snapshots/og-image.png" width="500" alt="OG Image Example">
-
-<details>
-<summary>View HTML</summary>
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-  <meta name="dynimg:width" content="1200">
-  <meta name="dynimg:height" content="630">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: system-ui, -apple-system, sans-serif; }
-    .container {
-      width: 1200px;
-      height: 630px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      padding: 80px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    }
-    h1 { color: white; font-size: 72px; font-weight: 700; line-height: 1.1; margin-bottom: 24px; }
-    p { color: rgba(255, 255, 255, 0.85); font-size: 32px; }
-    .footer { position: absolute; bottom: 40px; left: 80px; color: rgba(255, 255, 255, 0.6); font-size: 24px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>Your Blog Post Title Here</h1>
-    <p>A compelling subtitle that captures attention</p>
-    <div class="footer">yoursite.com</div>
-  </div>
-</body>
-</html>
-```
-</details>
-
-### Social Card
-
-<img src="https://raw.githubusercontent.com/blopker/dynimg/main/tests/snapshots/social-card.png" width="500" alt="Social Card Example">
-
-<details>
-<summary>View HTML</summary>
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-  <meta name="dynimg:width" content="1200">
-  <meta name="dynimg:height" content="675">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: system-ui, -apple-system, sans-serif; }
-    .card {
-      width: 1200px;
-      height: 675px;
-      background: #0f172a;
-      display: flex;
-      padding: 60px;
-    }
-    .content { flex: 1; display: flex; flex-direction: column; justify-content: center; }
-    .tag {
-      display: inline-block;
-      background: #3b82f6;
-      color: white;
-      padding: 8px 16px;
-      border-radius: 20px;
-      font-size: 18px;
-      font-weight: 600;
-      margin-bottom: 24px;
-      width: fit-content;
-    }
-    h1 { color: white; font-size: 56px; font-weight: 700; line-height: 1.2; margin-bottom: 20px; }
-    p { color: #94a3b8; font-size: 24px; line-height: 1.5; }
-    .avatar {
-      width: 200px;
-      height: 200px;
-      background: linear-gradient(135deg, #06b6d4, #3b82f6);
-      border-radius: 100px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      align-self: center;
-      margin-left: 60px;
-    }
-    .avatar-text { color: white; font-size: 72px; font-weight: 700; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="content">
-      <span class="tag">Tutorial</span>
-      <h1>Getting Started with Rust</h1>
-      <p>Learn the fundamentals of Rust programming language with practical examples.</p>
-    </div>
-    <div class="avatar">
-      <span class="avatar-text">RS</span>
-    </div>
-  </div>
-</body>
-</html>
-```
-</details>
-
-## Supported CSS Features
-
-dynimg uses Blitz for rendering, which supports:
-
-- Flexbox and Grid layouts
-- CSS variables
-- Media queries
-- Complex selectors
-- Gradients and shadows
-- Web fonts (via `@font-face`, requires `--allow-net` or `--assets`)
-- Images (requires `--allow-net` or `--assets`, or use data URIs)
+The [`examples/`](examples) directory has the templates used by the snapshot tests, including the [OG image](examples/og-image.html) and [social card](examples/social-card.html) above. Their rendered output is in [`tests/snapshots/`](tests/snapshots).
 
 ## Performance
 
-dynimg is designed for speed: no browser, a native Rust rendering pipeline, and fast image encoding.
-
 In a long-running process (a server or Python worker), the example templates render in 1–4ms each, plus 1–5ms of PNG encoding for a 2400px-wide image (measured on an Apple M5 Max). Pages that fetch remote resources also wait for the network.
 
-The first render in a process also discovers the system's fonts, which takes roughly 10–80ms on the same machine; later renders reuse that list. Fonts installed on the host after the first render are picked up after a restart. Fonts passed through `fonts` / `--font` are read on every render and never shared between renders.
-
-The CLI renders once per process, so each invocation pays that startup cost.
+The first render in a process discovers the system's fonts, which takes roughly 10–80ms; later renders reuse that list, so fonts installed after the first render are picked up after a restart. Registered fonts are read on every render. The CLI renders once per process, so each invocation pays the startup cost.
 
 ## Development
 
-### Building
+See the [Makefile](Makefile) for common commands:
 
 ```bash
-# Build CLI
-cargo build --release
-
-# Build Python wheel
-pip install maturin
-maturin build --release --features python
-
-# Install locally for development
-maturin develop --features python
+make install   # build (release) and install into the local .venv, including the CLI
+make dev       # same, debug build
+make test      # lints, Rust tests, Python tests, and snapshot tests
+make fmt       # format Rust code
 ```
 
-### Running Tests
+### Releasing
 
 ```bash
-cargo test
-cargo clippy -- -D warnings
-cargo fmt -- --check
+make release             # bump patch version, commit, tag, and push
+make release BUMP=minor  # or minor/major
 ```
 
-## Releasing
-
-Releases are automated via a release script and GitHub Actions. To create a new release:
-
-```bash
-./scripts/release.sh
-```
-
-The script will:
-1. Verify you're on the main branch with a clean working directory
-2. Check that you're up to date with the remote
-3. Bump the patch version in `Cargo.toml` and `pyproject.toml`
-4. Commit the version changes and create an annotated tag
-5. Push the commit and tag to origin
-
-This triggers the GitHub Actions release workflow which:
-- Builds wheels for Linux (x86_64, aarch64) and macOS (aarch64)
-- Creates a GitHub Release with all artifacts
-- Publishes to PyPI
+The script requires a clean, up-to-date `main`. Pushing the tag triggers GitHub Actions, which builds wheels for Linux (x86_64, aarch64) and macOS (aarch64), creates a GitHub Release, and publishes to PyPI.
 
 ## License
 
 MIT
-
-## AI Warning
-
-This is AI slop, if you want to use it, fork and make it your own!

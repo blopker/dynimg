@@ -13,11 +13,11 @@ This folder contains tools for testing wheels downloaded from CI artifacts.
 python3 -m venv .venv
 source .venv/bin/activate
 
-# 3. Install the wheel
-pip install path/to/dynimg-*.whl
+# 3. Install the wheel and pytest
+pip install path/to/dynimg-*.whl pytest
 
 # 4. Run tests
-python test_dynimg.py
+python -m pytest .
 ```
 
 ## Platform Wheels
@@ -47,5 +47,5 @@ gh run download <RUN_ID>
 
 ```bash
 # Create venv, install wheel, run tests
-python3 -m venv .venv && source .venv/bin/activate && pip install *.whl && python test_dynimg.py
+python3 -m venv .venv && source .venv/bin/activate && pip install *.whl pytest && python -m pytest .
 ```

@@ -1,380 +1,210 @@
-#!/usr/bin/env python3
-"""Test script for dynimg wheels."""
+"""Tests for the installed dynimg package (run against built wheels in CI)."""
 
-import sys
-import time
-from contextlib import contextmanager
 from pathlib import Path
 
-OUTPUT_DIR = Path(__file__).parent / "output"
-FONT_PATH = (
-    Path(__file__).parent.parent
-    / "examples"
-    / "assets"
-    / "fonts"
-    / "Silkscreen-Regular.ttf"
+import dynimg
+import pytest
+
+FONTS_DIR = Path(__file__).parent.parent / "examples" / "assets" / "fonts"
+FONT_PATH = FONTS_DIR / "Silkscreen-Regular.ttf"
+EMOJI_FONT_PATH = FONTS_DIR / "TwemojiCOLRv0.ttf"
+
+PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
+JPEG_MAGIC = b"\xff\xd8"
+WEBP_MAGIC = b"RIFF"
+
+
+def test_version():
+    assert dynimg.__version__
+
+
+def test_render_size(timer):
+    html = '<html><body style="background:blue;"><h1>Test</h1></body></html>'
+    with timer.measure("render"):
+        img = dynimg.render(html, dynimg.RenderOptions(width=100, height=100, scale=1.0))
+    assert (img.width, img.height) == (100, 100)
+    assert len(img.data) == 100 * 100 * 4
+
+
+def test_render_scale(timer):
+    html = """
+    <body style="background: linear-gradient(135deg, #667eea, #764ba2); margin: 0;">
+        <h1 style="color: white; font-family: system-ui; font-size: 64px;">Hello World</h1>
+    </body>
+    """
+    with timer.measure("render"):
+        img = dynimg.render(html, dynimg.RenderOptions(width=1200, height=630, scale=2.0))
+    assert (img.width, img.height) == (2400, 1260)
+    with timer.measure("to_png"):
+        img.to_png()
+    with timer.measure("to_webp"):
+        img.to_webp()
+    with timer.measure("to_jpeg"):
+        img.to_jpeg()
+
+
+@pytest.fixture
+def small_image():
+    html = '<html><body style="background:red;"></body></html>'
+    return dynimg.render(html, dynimg.RenderOptions(width=50, height=50, scale=1.0))
+
+
+@pytest.mark.parametrize(
+    ("save", "ext", "magic"),
+    [
+        (lambda img, p: img.save_png(p), "png", PNG_MAGIC),
+        (lambda img, p: img.save_webp(p), "webp", WEBP_MAGIC),
+        (lambda img, p: img.save_jpeg(p, quality=90), "jpg", JPEG_MAGIC),
+    ],
+    ids=["png", "webp", "jpeg"],
+)
+def test_save(small_image, out_dir, timer, save, ext, magic):
+    path = out_dir / f"out.{ext}"
+    with timer.measure("save"):
+        save(small_image, str(path))
+    assert path.read_bytes().startswith(magic)
+
+
+def test_to_bytes(small_image):
+    assert small_image.to_png().startswith(PNG_MAGIC)
+    assert small_image.to_webp().startswith(WEBP_MAGIC)
+    assert small_image.to_jpeg(quality=90).startswith(JPEG_MAGIC)
+
+
+@pytest.mark.parametrize(
+    ("ext", "magic"), [("png", PNG_MAGIC), ("webp", WEBP_MAGIC)], ids=["png", "webp"]
+)
+def test_render_to_file(out_dir, timer, ext, magic):
+    html = '<html><body style="background:yellow;"></body></html>'
+    path = out_dir / f"direct.{ext}"
+    with timer.measure("render_to_file"):
+        dynimg.render_to_file(
+            html, str(path), options=dynimg.RenderOptions(width=100, height=100, scale=1.0)
+        )
+    assert path.read_bytes().startswith(magic)
+
+
+def test_render_to_file_default_options(out_dir):
+    html = '<html><body style="background:yellow;"><h1>Defaults</h1></body></html>'
+    path = out_dir / "direct.jpg"
+    dynimg.render_to_file(html, str(path))
+    assert path.read_bytes().startswith(JPEG_MAGIC)
+
+
+def test_render_to_file_jpeg_quality(out_dir):
+    html = '<html><body style="background:linear-gradient(red,blue);"></body></html>'
+    options = dynimg.RenderOptions(width=200, height=200, scale=1.0)
+    low, high = out_dir / "low.jpg", out_dir / "high.jpg"
+    dynimg.render_to_file(html, str(low), options=options, quality=20)
+    dynimg.render_to_file(html, str(high), options=options, quality=95)
+    assert low.stat().st_size < high.stat().st_size
+
+
+FONT_HTML = (
+    '<html><body style="margin:0; background:white;">'
+    "<h1 style=\"font-family: 'Silkscreen'; font-size: 32px;\">Custom 0123</h1>"
+    "</body></html>"
 )
 
 
-class RunTimer:
-    def __init__(self):
-        self.start = time.perf_counter()
-
-    @contextmanager
-    def measure(self, name):
-        t0 = time.perf_counter()
-        yield
-        t1 = time.perf_counter()
-        print(f"[{t1 - self.start:.3f}s] {name} took {(t1 - t0) * 1000:.2f}ms")
+def render_png(html, width, height, fonts=None):
+    options = dynimg.RenderOptions(width=width, height=height, scale=1.0, fonts=fonts)
+    return dynimg.render(html, options).to_png()
 
 
-def test_import():
-    """Test basic import."""
-    import dynimg
-
-    print(f"dynimg version: {dynimg.__version__}")
-    print(f"Module: {dynimg}")
-    return True
-
-
-def test_render_basic():
-    """Test basic rendering."""
-    import dynimg
-
-    timer = RunTimer()
-    html = '<html><body style="background:blue;"><h1>Test</h1></body></html>'
-
-    with timer.measure("Render"):
-        img = dynimg.render(
-            html, dynimg.RenderOptions(width=100, height=100, scale=1.0)
-        )
-
-    assert img.width == 100, f"Expected width 100, got {img.width}"
-    assert img.height == 100, f"Expected height 100, got {img.height}"
-
-    with timer.measure("Save PNG"):
-        img.save_png(str(OUTPUT_DIR / "test_basic.png"))
-
-    with timer.measure("Save JPEG"):
-        img.save_jpeg(str(OUTPUT_DIR / "test_basic.jpg"))
-
-    with timer.measure("Save WebP"):
-        img.save_webp(str(OUTPUT_DIR / "test_basic.webp"))
-
-    print(f"Basic render: {img.width}x{img.height}")
-    return True
+def test_font_path_changes_rendering(timer):
+    with timer.measure("render without font"):
+        without = render_png(FONT_HTML, 300, 100)
+    with timer.measure("render with font"):
+        from_list = render_png(FONT_HTML, 300, 100, fonts=[str(FONT_PATH)])
+    from_str = render_png(FONT_HTML, 300, 100, fonts=str(FONT_PATH))
+    assert from_list != without
+    assert from_str == from_list
 
 
-def test_render_gradient():
-    """Test gradient rendering."""
-    import dynimg
-
-    timer = RunTimer()
-    html = """
-    <html>
-    <body style="background: linear-gradient(135deg, #667eea, #764ba2);
-                 display: flex; justify-content: center; align-items: center;
-                 height: 630px; margin: 0;">
-        <h1 style="color: white; font-family: system-ui; font-size: 64px;">
-            Hello World
-        </h1>
-    </body>
-    </html>
-    """
-    options = dynimg.RenderOptions(width=1200, height=630, scale=2.0)
-
-    with timer.measure("Render"):
-        img = dynimg.render(html, options)
-
-    assert img.width == 2400, f"Expected width 2400, got {img.width}"
-    assert img.height == 1260, f"Expected height 1260, got {img.height}"
-    with timer.measure("Save WebP"):
-        img.save_webp(str(OUTPUT_DIR / "test_gradient.webp"))
-
-    with timer.measure("Save PNG"):
-        img.save_png(str(OUTPUT_DIR / "test_gradient.png"))
-
-    with timer.measure("Save JPEG"):
-        img.save_jpeg(str(OUTPUT_DIR / "test_gradient.jpg"))
-
-    print(f"Gradient render: {img.width}x{img.height}")
-    return True
-
-
-def test_save_formats():
-    """Test saving to different formats."""
-    import dynimg
-
-    timer = RunTimer()
-    html = '<html><body style="background:red; width:50px; height:50px;"></body></html>'
-    with timer.measure("Render"):
-        img = dynimg.render(html, dynimg.RenderOptions(width=50, height=50, scale=1.0))
-
-    # Test PNG
-    png_path = OUTPUT_DIR / "test_output.png"
-    with timer.measure("Save PNG"):
-        img.save_png(str(png_path))
-    assert png_path.exists(), "PNG file not created"
-    png_size = png_path.stat().st_size
-    print(f"PNG saved: {png_size} bytes")
-
-    # Test WebP
-    webp_path = OUTPUT_DIR / "test_output.webp"
-    with timer.measure("Save WebP"):
-        img.save_webp(str(webp_path))
-    assert webp_path.exists(), "WebP file not created"
-    webp_size = webp_path.stat().st_size
-    print(f"WebP saved: {webp_size} bytes")
-
-    # Test JPEG
-    jpeg_path = OUTPUT_DIR / "test_output.jpg"
-    with timer.measure("Save JPEG"):
-        img.save_jpeg(str(jpeg_path), quality=90)
-    assert jpeg_path.exists(), "JPEG file not created"
-    jpeg_size = jpeg_path.stat().st_size
-    print(f"JPEG saved: {jpeg_size} bytes")
-
-    return True
-
-
-def test_to_bytes():
-    """Test encoding to bytes."""
-    import dynimg
-
-    timer = RunTimer()
-    html = (
-        '<html><body style="background:green; width:50px; height:50px;"></body></html>'
-    )
-
-    with timer.measure("Render"):
-        img = dynimg.render(html, dynimg.RenderOptions(width=50, height=50, scale=1.0))
-
-    png_bytes = img.to_png()
-    assert len(png_bytes) > 0, "PNG bytes empty"
-    assert png_bytes[:8] == b"\x89PNG\r\n\x1a\n", "Invalid PNG header"
-    print(f"PNG bytes: {len(png_bytes)} bytes")
-
-    webp_bytes = img.to_webp()
-    assert len(webp_bytes) > 0, "WebP bytes empty"
-    assert webp_bytes[:4] == b"RIFF", "Invalid WebP header"
-    print(f"WebP bytes: {len(webp_bytes)} bytes")
-
-    jpeg_bytes = img.to_jpeg(quality=90)
-    assert len(jpeg_bytes) > 0, "JPEG bytes empty"
-    assert jpeg_bytes[:2] == b"\xff\xd8", "Invalid JPEG header"
-    print(f"JPEG bytes: {len(jpeg_bytes)} bytes")
-
-    return True
-
-
-def test_render_to_file():
-    """Test render_to_file convenience function."""
-    import dynimg
-
-    timer = RunTimer()
-    html = (
-        '<html><body style="background:yellow; width:50px; height:50px;"></body></html>'
-    )
-
-    png_path = OUTPUT_DIR / "test_direct.png"
-    with timer.measure("render_to_file PNG"):
-        dynimg.render_to_file(html, str(png_path))
-    assert png_path.exists(), "Direct PNG not created"
-    print(f"render_to_file PNG: {png_path.stat().st_size} bytes")
-    png_path.unlink()
-
-    webp_path = OUTPUT_DIR / "test_direct.webp"
-    with timer.measure("render_to_file WebP"):
-        dynimg.render_to_file(
-            html,
-            str(webp_path),
-            options=dynimg.RenderOptions(width=100, height=100, scale=1.0),
-            quality=85,
-        )
-    assert webp_path.exists(), "Direct WebP not created"
-    print(f"render_to_file WebP: {webp_path.stat().st_size} bytes")
-    webp_path.unlink()
-
-    return True
-
-
-def test_custom_fonts():
-    """Test custom font registration via paths and name mappings."""
-    import dynimg
-
-    timer = RunTimer()
-    html = (
-        '<html><body style="margin:0; background:white;">'
-        "<h1 style=\"font-family: 'Silkscreen'; font-size: 32px;\">Custom 0123</h1>"
-        "</body></html>"
-    )
-    with timer.measure("Render without font"):
-        without = dynimg.render(
-            html, dynimg.RenderOptions(width=300, height=100, scale=1.0)
-        ).to_png()
-
-    with timer.measure("Render with font path"):
-        from_path = dynimg.render(
-            html,
-            dynimg.RenderOptions(
-                width=300, height=100, scale=1.0, fonts=[str(FONT_PATH)]
-            ),
-        ).to_png()
-
-    assert from_path != without, "Custom font did not change rendering"
-
-    with timer.measure("Render with single str font"):
-        from_single = dynimg.render(
-            html,
-            dynimg.RenderOptions(
-                width=300, height=100, scale=1.0, fonts=str(FONT_PATH)
-            ),
-        ).to_png()
-    assert from_single == from_path, "Single-str font source rendered differently"
-
+def test_emoji_font_mapping(timer):
     # The text generic is mapped in BOTH renders: on fontconfig hosts an
     # unmapped generic expands to a platform list that can include an emoji
     # font (e.g. Noto), which would win over the emoji mapping. Pinning the
     # text generic is the documented pattern for fully pinned emoji.
-    emoji_html = (
+    html = (
         '<html><body style="margin:0; background:white; font-size:32px;">'
         '<p style="font-family: sans-serif;">\N{GRINNING FACE}\N{ROCKET}</p>'
         "</body></html>"
     )
-    emoji_path = FONT_PATH.parent / "TwemojiCOLRv0.ttf"
-    with timer.measure("Render with emoji mapping"):
-        with_emoji = dynimg.render(
-            emoji_html,
-            dynimg.RenderOptions(
-                width=200,
-                height=80,
-                scale=1.0,
-                fonts={"sans-serif": str(FONT_PATH), "emoji": str(emoji_path)},
-            ),
-        ).to_png()
-    without_emoji = dynimg.render(
-        emoji_html,
-        dynimg.RenderOptions(
-            width=200, height=80, scale=1.0, fonts={"sans-serif": str(FONT_PATH)}
-        ),
-    ).to_png()
-    assert with_emoji != without_emoji, "emoji mapping did not change emoji rendering"
+    text_only = {"sans-serif": str(FONT_PATH)}
+    with_emoji = {**text_only, "emoji": str(EMOJI_FONT_PATH)}
+    with timer.measure("render with emoji font"):
+        emoji = render_png(html, 200, 80, fonts=with_emoji)
+    assert emoji != render_png(html, 200, 80, fonts=text_only)
 
-    generic_html = (
+
+def test_font_name_mappings():
+    html = (
         '<html><body style="margin:0; background:white; font-size:24px;">'
         '<p style="font-family: sans-serif;">Mapped sans-serif</p>'
-        '<p style="font-family: \'brand\';">Custom-named font</p>'
+        "<p style=\"font-family: 'brand';\">Custom-named font</p>"
         "</body></html>"
     )
-    with timer.measure("Render with mixed list + mapping"):
-        mapped = dynimg.render(
-            generic_html,
-            dynimg.RenderOptions(
-                width=300,
-                height=120,
-                scale=1.0,
-                fonts=[
-                    str(FONT_PATH),
-                    {"sans-serif": str(FONT_PATH), "brand": str(FONT_PATH)},
-                ],
-            ),
-        ).to_png()
-    unmapped = dynimg.render(
-        generic_html, dynimg.RenderOptions(width=300, height=120, scale=1.0)
-    ).to_png()
-    assert mapped != unmapped, "name mappings did not change rendering"
-    print(f"Custom font render differs from fallback: {len(from_path)} bytes")
-
-    try:
-        dynimg.render(
-            html, dynimg.RenderOptions(fonts=["/nonexistent/font.ttf"])
-        )
-        raise AssertionError("Expected error for missing font file")
-    except RuntimeError as e:
-        assert "font" in str(e).lower(), f"unexpected error: {e}"
-        print("Missing font file raises at render")
-
-    try:
-        dynimg.render(
-            html, dynimg.RenderOptions(fonts=[str(OUTPUT_DIR / "test_basic.png")])
-        )
-        raise AssertionError("Expected error for invalid font file")
-    except RuntimeError as e:
-        assert "font" in str(e).lower(), f"unexpected error: {e}"
-        print("Invalid font file raises at render")
-
-    return True
+    mixed = [str(FONT_PATH), {"sans-serif": str(FONT_PATH), "brand": str(FONT_PATH)}]
+    assert render_png(html, 300, 120, fonts=mixed) != render_png(html, 300, 120)
 
 
+def test_missing_font_raises():
+    with pytest.raises(RuntimeError, match="(?i)font"):
+        render_png(FONT_HTML, 300, 100, fonts=["/nonexistent/font.ttf"])
 
-def test_meta_tag_precedence():
-    """Meta tags apply when options are unset; explicit options win."""
-    import dynimg
 
-    html = """<html><head>
-        <meta name="dynimg:width" content="40">
-        <meta name="dynimg:height" content="20">
-        <meta name="dynimg:scale" content="1">
-        <meta name="dynimg:quality" content="42">
-    </head><body></body></html>"""
+def test_invalid_font_raises(out_dir):
+    not_a_font = out_dir / "not-a-font.ttf"
+    not_a_font.write_bytes(b"definitely not a font")
+    with pytest.raises(RuntimeError, match="(?i)font"):
+        render_png(FONT_HTML, 300, 100, fonts=[str(not_a_font)])
 
-    img = dynimg.render(html)
-    assert (img.width, img.height, img.quality) == (40, 20, 42), (
-        f"meta tags not applied: {img.width}x{img.height} q{img.quality}"
-    )
 
+META_HTML = """<html><head>
+    <meta name="dynimg:width" content="40">
+    <meta name="dynimg:height" content="20">
+    <meta name="dynimg:scale" content="1">
+    <meta name="dynimg:quality" content="42">
+</head><body></body></html>"""
+
+
+def test_meta_tags_apply_when_options_unset():
+    img = dynimg.render(META_HTML)
+    assert (img.width, img.height, img.quality) == (40, 20, 42)
+
+
+def test_options_override_meta_tags():
     opts = dynimg.RenderOptions(width=30, scale=2.0, quality=80)
     assert opts.height is None and opts.width == 30
-    img = dynimg.render(html, opts)
-    assert (img.width, img.height, img.quality) == (60, 40, 80), (
-        f"options should override meta: {img.width}x{img.height} q{img.quality}"
-    )
-    assert img.to_jpeg()[:2] == b"\xff\xd8"
-    return True
+    img = dynimg.render(META_HTML, opts)
+    # Height still comes from the meta tag, scaled by the explicit scale
+    assert (img.width, img.height, img.quality) == (60, 40, 80)
 
 
-def main():
-    """Run all tests."""
-    OUTPUT_DIR.mkdir(exist_ok=True)
-
-    tests = [
-        ("Import", test_import),
-        ("Basic Render", test_render_basic),
-        ("Gradient Render", test_render_gradient),
-        ("Save Formats", test_save_formats),
-        ("To Bytes", test_to_bytes),
-        ("Render to File", test_render_to_file),
-        ("Custom Fonts", test_custom_fonts),
-        ("Meta Tag Precedence", test_meta_tag_precedence),
-    ]
-
-    print("=" * 50)
-    print("dynimg Wheel Test Suite")
-    print("=" * 50)
-
-    passed = 0
-    failed = 0
-
-    for name, test_func in tests:
-        print(f"\n[TEST] {name}")
-        try:
-            if test_func():
-                print(f"[PASS] {name}")
-                passed += 1
-            else:
-                print(f"[FAIL] {name}")
-                failed += 1
-        except Exception as e:
-            print(f"[FAIL] {name}: {e}")
-            failed += 1
-
-    print("\n" + "=" * 50)
-    print(f"Results: {passed} passed, {failed} failed")
-    print("=" * 50)
-
-    return failed == 0
+def test_size_limit():
+    html = """<html><head>
+        <meta name="dynimg:width" content="8000">
+        <meta name="dynimg:height" content="8000">
+    </head><body></body></html>"""
+    with pytest.raises(RuntimeError, match="16000x16000"):
+        dynimg.render(html)
 
 
-if __name__ == "__main__":
-    success = main()
-    sys.exit(0 if success else 1)
+def test_nan_scale_raises():
+    """Must be a normal exception, not a Rust panic (PanicException isn't an
+    Exception subclass, so `except Exception` wouldn't catch it)."""
+    html = '<meta name="dynimg:scale" content="NaN"><h1>x</h1>'
+    with pytest.raises(RuntimeError, match="Invalid scale"):
+        dynimg.render(html)
+
+
+def test_cli(out_dir):
+    """The `dynimg` console script ships with the wheel."""
+    html = out_dir / "in.html"
+    html.write_text('<body style="background:blue"></body>')
+    out = out_dir / "out.png"
+    assert dynimg.cli_main(["dynimg", str(html), "-o", str(out), "-w", "40", "-H", "20"]) == 0
+    assert out.read_bytes().startswith(PNG_MAGIC)
+    assert dynimg.cli_main(["dynimg", "--bogus"]) == 2

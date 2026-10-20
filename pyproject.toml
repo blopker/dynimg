@@ -38,5 +38,11 @@ features = ["python"]
 module-name = "dynimg._dynimg"
 python-source = "python"
 
+[tool.pytest.ini_options]
+testpaths = ["test_wheels"]
+
 [dependency-groups]
-dev = ["maturin>=1.12.6"]
+dev = [
+    "maturin>=1.12.6",
+    "pytest>=9.1.1",
+]

@@ -1,9 +1,3 @@
-# Ignore downloaded wheels and test artifacts
+# Ignore downloaded wheels and the test venv
 *.whl
 .venv/
-test_output.*
-*.jpg
-*.webp
-*.png
-
-output/

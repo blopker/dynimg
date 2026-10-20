@@ -55,11 +55,11 @@ source .venv/bin/activate
 
 echo ""
 echo "=== Installing wheel ==="
-pip install --quiet "$WHEEL"
+pip install --quiet "$WHEEL" pytest
 
 echo ""
 echo "=== Running tests ==="
-python test_dynimg.py
+python -m pytest .
 
 echo ""
 echo "Done!"
