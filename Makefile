@@ -9,10 +9,9 @@ dev:
 	maturin develop
 
 # Run tests
-test: lint dev
+test: lint install
 	cargo test
-	.venv/bin/python test_wheels/test_dynimg.py
-	.venv/bin/python test_wheels/test_threading.py
+	.venv/bin/python -m pytest
 	./scripts/snapshot-tests.sh
 
 # Regenerates the shared baselines and the macOS system-fonts baseline here,

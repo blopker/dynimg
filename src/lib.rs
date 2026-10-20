@@ -75,7 +75,24 @@ pub enum Error {
 
     #[error("Unsupported image format {0:?} (expected png, jpg, jpeg or webp)")]
     UnsupportedFormat(String),
+
+    #[error(
+        "Image would be {width}x{height} pixels; the maximum is {MAX_DIMENSION} on each side \
+         (output size = viewport x scale)"
+    )]
+    TooLarge { width: u32, height: u32 },
+
+    #[error("Image would be {width}x{height} pixels; width and height must be at least 1")]
+    EmptyImage { width: u32, height: u32 },
+
+    #[error("Invalid scale {0}; it must be a positive number")]
+    InvalidScale(f32),
 }
+
+/// Largest output image width or height in pixels. Pages can set their own
+/// size (meta tags, content height), so this bounds the pixel buffer: an
+/// 8192x8192 RGBA image is 256 MiB.
+pub const MAX_DIMENSION: u32 = 8192;
 
 /// Viewport width used when neither options nor a meta tag set one
 pub const DEFAULT_WIDTH: u32 = 1200;
@@ -359,7 +376,10 @@ impl RenderedImage {
         let mut config = webp::WebPConfig::new().unwrap();
         config.lossless = 1;
         config.quality = 75.0;
-        config.method = 0; // 0=fastest, 6=slowest (default)
+        // 0=fastest, 6=slowest. Method 0 can produce files several times
+        // larger than PNG on text-heavy pages; 1 is far smaller (often 1.3-25x)
+        // and higher methods gain little more for the time.
+        config.method = 1;
         encoder.encode_advanced(&config).unwrap().to_vec()
     }
 }
@@ -434,6 +454,17 @@ pub async fn render(html: &str, options: RenderOptions) -> Result<RenderedImage,
     let scale = scale.or(meta.scale).unwrap_or(DEFAULT_SCALE);
     let quality = quality.or(meta.quality).unwrap_or(DEFAULT_QUALITY);
 
+    // Meta tags parse "NaN" and "inf" as floats, which panic inside layout
+    if !(scale.is_finite() && scale > 0.0) {
+        return Err(Error::InvalidScale(scale));
+    }
+
+    // Fail before layout when the requested size is already too large; auto
+    // height is checked once layout has measured the content
+    if let Some(height) = height {
+        check_size(scaled(width, scale), scaled(height, scale))?;
+    }
+
     // Auto height lays out against a provisional 800px viewport, then
     // renders at the document's content height
     document.set_viewport(Viewport::new(
@@ -449,7 +480,7 @@ pub async fn render(html: &str, options: RenderOptions) -> Result<RenderedImage,
         .unwrap_or(Color::TRANSPARENT);
 
     let (data, width, height) =
-        render_document(&mut document, &provider, width, height, scale, background).await;
+        render_document(&mut document, &provider, width, height, scale, background).await?;
 
     Ok(RenderedImage {
         data,
@@ -825,6 +856,18 @@ fn scaled(css_px: u32, scale: f32) -> u32 {
     (css_px as f64 * scale as f64) as u32
 }
 
+/// Error if an output image of this size would be empty or exceed
+/// [`MAX_DIMENSION`]
+fn check_size(width: u32, height: u32) -> Result<(), Error> {
+    if width == 0 || height == 0 {
+        return Err(Error::EmptyImage { width, height });
+    }
+    if width > MAX_DIMENSION || height > MAX_DIMENSION {
+        return Err(Error::TooLarge { width, height });
+    }
+    Ok(())
+}
+
 /// Load resources, lay out and paint the document. Returns RGBA pixel data
 /// with its width and height in output pixels.
 async fn render_document(
@@ -834,7 +877,7 @@ async fn render_document(
     height: Option<u32>,
     scale: f32,
     background: Color,
-) -> (Vec<u8>, u32, u32) {
+) -> Result<(Vec<u8>, u32, u32), Error> {
     // Load resources, including cascades (a stylesheet's fonts and images
     // are only requested once a resolve processes the stylesheet). Responses
     // reach the document through a queue that only resolve() drains, so "no
@@ -863,6 +906,7 @@ async fn render_document(
     });
     let render_width = scaled(width, scale);
     let render_height = scaled(height, scale);
+    check_size(render_width, render_height)?;
 
     // Render to RGBA buffer
     let buffer = render_to_buffer::<VelloCpuImageRenderer, _>(
@@ -889,7 +933,7 @@ async fn render_document(
         render_height,
     );
 
-    (buffer, render_width, render_height)
+    Ok((buffer, render_width, render_height))
 }
 
 #[cfg(test)]
@@ -1123,6 +1167,87 @@ mod tests {
 
     fn with_meta(meta: &str) -> String {
         format!("<html><head>{meta}</head><body>hi</body></html>")
+    }
+
+    #[tokio::test]
+    async fn webp_is_smaller_than_png() {
+        let html = include_str!("../examples/kitchen-sink.html");
+        let image = render(html, RenderOptions::default()).await.unwrap();
+        let (webp, png) = (image.to_webp().len(), image.to_png().unwrap().len());
+        assert!(webp < png, "lossless WebP {webp} bytes vs PNG {png} bytes");
+    }
+
+    fn assert_too_large(result: Result<RenderedImage, Error>, size: (u32, u32)) {
+        match result {
+            Err(Error::TooLarge { width, height }) => assert_eq!((width, height), size),
+            other => panic!("expected TooLarge {size:?}, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn oversized_options_error() {
+        let options = RenderOptions::default().width(5000).height(10).scale(2.0);
+        assert_too_large(render("hi", options).await, (10000, 20));
+    }
+
+    #[tokio::test]
+    async fn oversized_meta_tags_error() {
+        let html = with_meta(
+            r#"<meta name="dynimg:width" content="8000">
+               <meta name="dynimg:height" content="8000">"#,
+        );
+        assert_too_large(
+            render(&html, RenderOptions::default()).await,
+            (16000, 16000),
+        );
+    }
+
+    #[tokio::test]
+    async fn oversized_content_height_errors() {
+        let html = r#"<body style="margin: 0"><div style="height: 5000px"></div></body>"#;
+        let options = RenderOptions::default().width(100).scale(2.0);
+        assert_too_large(render(html, options).await, (200, 10000));
+    }
+
+    #[tokio::test]
+    async fn invalid_scale_errors() {
+        for scale in [f32::NAN, f32::INFINITY, 0.0, -1.0] {
+            let options = RenderOptions::default().width(100).height(10).scale(scale);
+            let result = render("hi", options).await;
+            assert!(
+                matches!(result, Err(Error::InvalidScale(_))),
+                "scale {scale}: {result:?}"
+            );
+        }
+        let html = with_meta(r#"<meta name="dynimg:scale" content="NaN">"#);
+        let result = render(&html, RenderOptions::default()).await;
+        assert!(matches!(result, Err(Error::InvalidScale(_))), "{result:?}");
+    }
+
+    #[tokio::test]
+    async fn empty_image_errors() {
+        let options = RenderOptions::default().width(0).height(10).scale(1.0);
+        let result = render("hi", options).await;
+        assert!(
+            matches!(
+                result,
+                Err(Error::EmptyImage {
+                    width: 0,
+                    height: 10
+                })
+            ),
+            "{result:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn max_dimension_is_allowed() {
+        let options = RenderOptions::default()
+            .width(MAX_DIMENSION)
+            .height(1)
+            .scale(1.0);
+        let image = render("hi", options).await.unwrap();
+        assert_eq!(image.width, MAX_DIMENSION);
     }
 
     #[tokio::test]

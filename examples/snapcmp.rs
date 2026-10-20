@@ -53,41 +53,17 @@ fn main() -> ExitCode {
 }
 
 /// Decode an image file (PNG/JPEG/WebP) to RGBA pixels.
-/// JPEG goes through zune-jpeg 0.5 directly: the `image` crate's bundled
-/// zune-jpeg 0.4 rejects zenjpeg's (our encoder's) output with "Marker SOS
-/// found in bitstream".
 fn decode(path: &str) -> (Vec<[u8; 4]>, usize, usize) {
-    let lower = path.to_lowercase();
-    if lower.ends_with(".jpg") || lower.ends_with(".jpeg") {
-        return decode_jpeg(path);
-    }
     let image = image::ImageReader::open(path)
         .unwrap_or_else(|e| panic!("failed to open {path}: {e}"))
         .decode()
         .unwrap_or_else(|e| panic!("failed to decode {path}: {e}"))
         .into_rgba8();
     let (width, height) = (image.width() as usize, image.height() as usize);
-    let pixels = rgba_pixels(image.into_raw(), 4);
+    let pixels = image
+        .into_raw()
+        .chunks_exact(4)
+        .map(|px| [px[0], px[1], px[2], px[3]])
+        .collect();
     (pixels, width, height)
-}
-
-fn decode_jpeg(path: &str) -> (Vec<[u8; 4]>, usize, usize) {
-    use zune_jpeg::JpegDecoder;
-    use zune_jpeg::zune_core::colorspace::ColorSpace;
-    use zune_jpeg::zune_core::options::DecoderOptions;
-
-    let data = std::fs::read(path).unwrap_or_else(|e| panic!("failed to read {path}: {e}"));
-    let options = DecoderOptions::default().jpeg_set_out_colorspace(ColorSpace::RGB);
-    let mut decoder = JpegDecoder::new_with_options(std::io::Cursor::new(data), options);
-    let pixels = decoder
-        .decode()
-        .unwrap_or_else(|e| panic!("failed to decode {path}: {e:?}"));
-    let (width, height) = decoder.dimensions().expect("no jpeg dimensions");
-    (rgba_pixels(pixels, 3), width, height)
-}
-
-fn rgba_pixels(data: Vec<u8>, channels: usize) -> Vec<[u8; 4]> {
-    data.chunks_exact(channels)
-        .map(|px| [px[0], px[1], px[2], if channels == 4 { px[3] } else { 255 }])
-        .collect()
 }
